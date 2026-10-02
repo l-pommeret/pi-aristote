@@ -20,7 +20,7 @@ La commande installe Node.js si besoin (version privée, sans sudo), pi, l'exten
 - **Garde-fou** : un modèle qui annonce une action sans appeler d'outil, ou qui tourne en boucle, est coupé et relancé (deux fois au plus).
 - **Mode Ultracode** (`Alt+U`, `/ultracode` ou le mot « ultracode ») : le modèle dirige une équipe de sous-agents qui travaillent en parallèle.
 - **Disciples à la demande** : `/peripateticien` (exploration), `/euclide` (plan), `/hephaistos` (implémentation), `/socrate` (relecture et tests), `/sappho` (documentation, messages de commit).
-- **Navigateur et vision** : un outil `browser` ouvre des pages, en prend des captures que le modèle voit, lit, clique, remplit. Il utilise le navigateur Chromium déjà installé (Chrome, Brave, Edge…) ; `playwright-core` ne s'installe qu'au premier usage.
+- **Navigateur visible et vision** : l'outil `browser` ouvre une fenêtre (Chrome, Brave, Edge… déjà installé, avec un profil dédié) où l'on voit le curseur « α Aristote » chercher (DuckDuckGo, Bing en secours), cliquer et écrire ; le modèle regarde les pages en capture. Les bandeaux de cookies sont refusés, les CAPTCHA jamais contournés. `playwright-core` s'installe au premier usage. Sans écran, il passe en mode invisible (`ARISTOTE_BROWSER_HEADLESS=1` pour le forcer).
 - **Interface** : en-tête, thème et animations aux couleurs du LISN, uniquement quand un modèle Aristote est actif.
 
 ## Commandes
@@ -30,6 +30,8 @@ La commande installe Node.js si besoin (version privée, sans sudo), pi, l'exten
 | `/aristote` | état des modèles, de la clé et de la session |
 | `/aristote refresh` | revérifier les modèles |
 | `/maj` | mettre à jour l'extension |
+| `/clear` | repartir de zéro (comme `/new`) |
+| `/exit` | quitter (comme `/quit`) |
 | `/aristote key sk-…` | changer de clé API |
 | `/ultracode [on\|off]` | mode Ultracode |
 

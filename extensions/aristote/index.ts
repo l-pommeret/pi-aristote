@@ -187,6 +187,18 @@ export default async function (pi: ExtensionAPI) {
 		await ctx.reload();
 	};
 
+	pi.registerCommand("clear", {
+		description: "Effacer la conversation et repartir de zéro (comme /new)",
+		handler: async (_args, ctx) => {
+			await ctx.newSession();
+		},
+	});
+
+	pi.registerCommand("exit", {
+		description: "Quitter pi (comme /quit)",
+		handler: async (_args, ctx) => ctx.shutdown(),
+	});
+
 	pi.registerCommand("maj", {
 		description: "Mettre à jour l'extension Aristote (nouveaux disciples, correctifs…)",
 		handler: async (_args, ctx) => update(ctx),

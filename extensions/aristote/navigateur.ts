@@ -3,22 +3,25 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
+import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth } from "@earendil-works/pi-tui";
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { AGENT_DIR } from "./config.ts";
 
 const DIR = join(AGENT_DIR, "aristote-navigateur");
+const PROFILE = join(DIR, "profil");
 const PLAYWRIGHT = "playwright-core@1.63.0";
-const VIEWPORT = { width: 1280, height: 800 };
-const IDLE_MS = 10 * 60 * 1000;
+const SIZE = { width: 1280, height: 860 };
+const IDLE_MS = 15 * 60 * 1000;
 
 const Params = Type.Object({
-	action: StringEnum(["open", "screenshot", "read", "click", "type", "scroll", "back"] as const, { description: "screenshot = see the page; read = full text" }),
+	action: StringEnum(["search", "open", "screenshot", "read", "click", "type", "scroll", "back"] as const, {
+		description: "search = web search (prefer it to guessing urls); screenshot = see the page; read = full text",
+	}),
 	url: Type.Optional(Type.String()),
 	target: Type.Optional(Type.String({ description: "[n] or visible text" })),
-	text: Type.Optional(Type.String({ description: "text to type, or up/down for scroll" })),
+	text: Type.Optional(Type.String({ description: "search query, text to type, or up/down for scroll" })),
 	submit: Type.Optional(Type.Boolean()),
 });
 
@@ -55,9 +58,41 @@ function findBrowser(): string | undefined {
 	return process.env.ARISTOTE_BROWSER ?? paths.find((p) => existsSync(p));
 }
 
+const headless = () =>
+	process.env.ARISTOTE_BROWSER_HEADLESS === "1" ||
+	(platform() === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY);
+
+const OVERLAY = `(() => {
+	if (window.__aristote) return;
+	const css = '#__ar_c{position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;transition:transform var(--d,0ms) cubic-bezier(.22,.8,.25,1);filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}' +
+		'#__ar_c span{position:absolute;left:18px;top:22px;white-space:nowrap;font:600 11px/1 system-ui,sans-serif;color:#141538;background:#F2BC3C;border-radius:6px;padding:3px 7px}' +
+		'.__ar_r{position:fixed;z-index:2147483646;pointer-events:none;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid #1A8CA6;animation:__ar_p .55s ease-out forwards}' +
+		'@keyframes __ar_p{to{transform:scale(3.4);opacity:0}}' +
+		'#__ar_s{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483647;pointer-events:none;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px/1.3 system-ui,sans-serif;color:#eceef7;background:rgba(20,21,56,.92);border:1px solid #1A8CA6;border-radius:999px;padding:7px 14px;box-shadow:0 6px 20px rgba(0,0,0,.3)}' +
+		'#__ar_s b{color:#F2BC3C;margin-right:6px}';
+	let x = innerWidth / 2, y = innerHeight / 2, cursor, status;
+	const mount = () => {
+		if (cursor && document.documentElement.contains(cursor)) return;
+		const st = document.createElement('style'); st.textContent = css; document.documentElement.appendChild(st);
+		cursor = document.createElement('div'); cursor.id = '__ar_c';
+		cursor.innerHTML = '<svg width="22" height="26" viewBox="0 0 22 26"><path d="M2 2v19l5.2-4.8L11 24l3.4-1.5-3.6-7.6H18z" fill="#1A8CA6" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span>α Aristote</span>';
+		cursor.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+		status = document.createElement('div'); status.id = '__ar_s'; status.style.display = 'none';
+		document.documentElement.append(cursor, status);
+	};
+	window.__aristote = {
+		move(nx, ny, d) { mount(); x = nx; y = ny; cursor.style.setProperty('--d', (d || 0) + 'ms'); cursor.style.transform = 'translate(' + nx + 'px,' + ny + 'px)'; },
+		ripple(rx, ry) { mount(); const r = document.createElement('div'); r.className = '__ar_r'; r.style.left = rx + 'px'; r.style.top = ry + 'px'; document.documentElement.appendChild(r); setTimeout(() => r.remove(), 600); },
+		say(t) { mount(); status.style.display = t ? 'block' : 'none'; status.innerHTML = '<b>θ Aristote</b>' + t.replace(/[<&]/g, (c) => c === '<' ? '&lt;' : '&amp;'); },
+	};
+	if (document.documentElement) mount(); else addEventListener('DOMContentLoaded', mount);
+})()`;
+
 interface Session {
-	browser: any;
+	context: any;
 	page: any;
+	headless: boolean;
+	pos: { x: number; y: number };
 	idle?: NodeJS.Timeout;
 }
 
@@ -74,19 +109,37 @@ async function start(progress: (msg: string) => void): Promise<Session> {
 		await run(existsSync(npm) ? npm : "npm", ["install", "--silent", "--no-audit", "--no-fund", PLAYWRIGHT], DIR);
 	}
 	const { chromium } = createRequire(join(DIR, "package.json"))("playwright-core");
-	let executablePath = findBrowser();
+	const executablePath = findBrowser();
 	if (!executablePath) {
-		progress("aucun navigateur Chromium trouvé : téléchargement d'un Chromium léger, une seule fois…");
-		await run(process.execPath, [join(pkg, "cli.js"), "install", "chromium-headless-shell"]);
+		progress("aucun navigateur Chromium trouvé : téléchargement de Chromium, une seule fois…");
+		await run(process.execPath, [join(pkg, "cli.js"), "install", "chromium"]);
 	}
-	progress("ouverture du navigateur…");
-	const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
-	const context = await browser.newContext({ viewport: VIEWPORT, locale: "fr-FR" });
-	return { browser, page: await context.newPage() };
+	const hidden = headless();
+	progress(hidden ? "ouverture du navigateur (sans fenêtre)…" : "ouverture de la fenêtre du navigateur…");
+	const context = await chromium.launchPersistentContext(PROFILE, {
+		headless: hidden,
+		...(executablePath ? { executablePath } : {}),
+		viewport: hidden ? SIZE : null,
+		locale: "fr-FR",
+		args: [`--window-size=${SIZE.width},${SIZE.height}`, "--no-first-run", "--no-default-browser-check"],
+	});
+	await context.addInitScript(OVERLAY);
+	const page = context.pages()[0] ?? (await context.newPage());
+	const s: Session = { context, page, headless: hidden, pos: { x: 640, y: 400 } };
+	context.on("page", async (p: any) => {
+		s.page = p;
+		await p.bringToFront().catch(() => {});
+	});
+	context.on("close", () => {
+		if (session === s) session = undefined;
+	});
+	return s;
 }
 
 async function getSession(progress: (msg: string) => void): Promise<Session> {
-	if (session?.browser.isConnected()) return session;
+	if (session && !session.page.isClosed()) return session;
+	if (session) session.page = session.context.pages()[0] ?? (await session.context.newPage().catch(() => undefined));
+	if (session?.page) return session;
 	starting ??= start(progress).finally(() => (starting = undefined));
 	session = await starting;
 	return session;
@@ -95,7 +148,7 @@ async function getSession(progress: (msg: string) => void): Promise<Session> {
 async function closeSession() {
 	const s = session;
 	session = undefined;
-	if (s) await s.browser.close().catch(() => {});
+	if (s) await s.context.close().catch(() => {});
 }
 
 function touch(s: Session) {
@@ -104,11 +157,41 @@ function touch(s: Session) {
 	s.idle.unref?.();
 }
 
+const overlay = (page: any, fn: string, ...args: unknown[]) =>
+	page.evaluate(`window.__aristote && window.__aristote.${fn}(${args.map((a) => JSON.stringify(a)).join(",")})`).catch(() => {});
+
+async function say(s: Session, text: string) {
+	await overlay(s.page, "say", text);
+}
+
+async function pointAt(s: Session, locator: any) {
+	await locator.scrollIntoViewIfNeeded({ timeout: 10_000 });
+	const box = await locator.boundingBox({ timeout: 10_000 });
+	if (!box) throw new Error("element not visible");
+	const x = Math.round(box.x + Math.min(box.width / 2, 40));
+	const y = Math.round(box.y + box.height / 2);
+	const distance = Math.hypot(x - s.pos.x, y - s.pos.y);
+	const duration = Math.round(Math.min(900, 250 + distance * 0.6));
+	await overlay(s.page, "move", s.pos.x, s.pos.y, 0);
+	await overlay(s.page, "move", x, y, duration);
+	await s.page.mouse.move(x, y, { steps: 12 });
+	await s.page.waitForTimeout(duration + 60);
+	s.pos = { x, y };
+	return { x, y };
+}
+
+async function click(s: Session, locator: any) {
+	const { x, y } = await pointAt(s, locator);
+	await overlay(s.page, "ripple", x, y);
+	await s.page.mouse.click(x, y);
+}
+
 const SNAPSHOT = `(() => {
 	const items = [];
 	const nodes = document.querySelectorAll('a[href], button, input:not([type=hidden]), textarea, select, [role=button], [role=link], [role=tab], [onclick]');
 	let n = 0;
 	for (const el of nodes) {
+		if (el.closest('#__ar_c,#__ar_s')) continue;
 		const r = el.getBoundingClientRect();
 		const st = getComputedStyle(el);
 		if (r.width < 2 || r.height < 2 || st.visibility === 'hidden' || st.display === 'none') continue;
@@ -124,6 +207,36 @@ const SNAPSHOT = `(() => {
 	const text = (document.body?.innerText || '').replace(/\\n{3,}/g, '\\n\\n').trim();
 	return { title: document.title, url: location.href, items, text };
 })()`;
+
+const RESULTS = `(() => {
+	const out = [];
+	const rows = [...document.querySelectorAll('article[data-testid="result"]')].map((el) => ({ el, a: el.querySelector('a[data-testid="result-title-a"]'), snip: el.querySelector('[data-result="snippet"]') }))
+		.concat([...document.querySelectorAll('#b_results > li.b_algo')].map((el) => ({ el, a: el.querySelector('h2 a'), snip: el.querySelector('.b_caption p, .b_lineclamp2, .b_lineclamp3') })));
+	let n = 0;
+	for (const { a, snip } of rows) {
+		if (!a || !a.href) continue;
+		n++;
+		a.removeAttribute('target');
+		a.setAttribute('data-pi', String(n));
+		let host = '';
+		try { host = new URL(a.href).host; } catch {}
+		const text = (snip?.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 160);
+		out.push('[' + n + '] ' + a.innerText.trim() + (host && !/bing\\.com|duckduckgo/.test(host) ? ' — ' + host : '') + (text ? '\\n    ' + text : ''));
+		if (n >= 8) break;
+	}
+	return out;
+})()`;
+
+const REJECT_COOKIES = `(() => {
+	const re = /^(tout refuser|refuser tout|refuser|je refuse|continuer sans accepter|reject all|reject|decline|decline all|only necessary|uniquement les nécessaires|nécessaires uniquement)$/i;
+	const btn = [...document.querySelectorAll('button, [role=button], a')].find((b) => re.test((b.innerText || '').trim()) && b.offsetParent);
+	if (btn) { btn.click(); return true; }
+	return false;
+})()`;
+
+async function rejectCookies(page: any) {
+	await page.evaluate(REJECT_COOKIES).catch(() => false);
+}
 
 async function state(page: any, excerpt: number) {
 	const s = await page.evaluate(SNAPSHOT);
@@ -144,15 +257,25 @@ function locate(page: any, target: string) {
 }
 
 async function settle(page: any) {
-	await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
-	await page.waitForTimeout(600);
+	await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+	await page.waitForTimeout(700);
+	await rejectCookies(page);
 }
+
+const blocked = (page: any): Promise<boolean> =>
+	page
+		.evaluate(
+			"!!document.querySelector('form#captcha-form, iframe[src*=recaptcha], iframe[src*=hcaptcha], iframe[src*=challenges.cloudflare]') || /unusual traffic|trafic exceptionnel|not a robot|pas un robot/i.test(document.body?.innerText || '')",
+		)
+		.catch(() => false);
+
+const BLOCKED_NOTE = "\n\n[This page asks for a human verification: do not try to pass it, use another source.]";
 
 export function installNavigateur(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "browser",
 		label: "Navigateur",
-		description: "Headless web browser. Element numbers [n] come from the last open/click/scroll result.",
+		description: "Web browser the user can watch. Element numbers [n] come from the last result.",
 		parameters: Params,
 		executionMode: "sequential",
 
@@ -161,21 +284,50 @@ export function installNavigateur(pi: ExtensionAPI) {
 			const s = await getSession(progress);
 			touch(s);
 			const page = s.page;
-			signal?.addEventListener("abort", () => page.goto("about:blank").catch(() => {}), { once: true });
+			signal?.addEventListener("abort", () => say(s, " interrompu").catch(() => {}), { once: true });
 			let out: { title?: string; url?: string; text: string };
 
 			switch (params.action) {
+				case "search": {
+					const q = params.text ?? params.target ?? params.url;
+					if (!q) throw new Error("search needs text");
+					await say(s, ` cherche « ${q} »`);
+					let results: string[] = [];
+					for (const engine of [
+						{ url: `https://duckduckgo.com/?q=${encodeURIComponent(q)}&kl=fr-fr`, ready: 'a[data-testid="result-title-a"]' },
+						{ url: `https://www.bing.com/search?q=${encodeURIComponent(q)}&setlang=fr&cc=FR`, ready: "#b_results > li.b_algo h2 a" },
+					]) {
+						await page.goto(engine.url, { waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => {});
+						await page.waitForSelector(engine.ready, { timeout: 8_000 }).catch(() => {});
+						await rejectCookies(page);
+						results = await page.evaluate(RESULTS);
+						if (results.length) break;
+					}
+					await say(s, ` ${results.length} résultats pour « ${q} »`);
+					out = {
+						title: `Recherche : ${q}`,
+						url: page.url(),
+						text: results.length
+							? `Results for "${q}" — click [n] to visit:\n${results.join("\n")}`
+							: (await state(page, 2000)).text + ((await blocked(page)) ? BLOCKED_NOTE : ""),
+					};
+					break;
+				}
 				case "open": {
 					if (!params.url) throw new Error("open needs a url");
 					const url = /^[a-z]+:\/\//i.test(params.url) ? params.url : `https://${params.url}`;
+					await say(s, ` ouvre ${url}`);
 					await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
 					await settle(page);
 					out = await state(page, 3000);
+					if (await blocked(page)) out.text += BLOCKED_NOTE;
 					break;
 				}
 				case "screenshot": {
 					const vision = (ctx.model as any)?.input?.includes("image");
 					if (!vision) return { content: [{ type: "text", text: "This model cannot see images; use read instead." }], details: { action: "screenshot" } };
+					await say(s, " regarde la page");
+					await page.waitForTimeout(150);
 					const data = (await page.screenshot({ type: "jpeg", quality: 60 })).toString("base64");
 					return {
 						content: [
@@ -186,6 +338,7 @@ export function installNavigateur(pi: ExtensionAPI) {
 					};
 				}
 				case "read": {
+					await say(s, " lit la page");
 					const text: string = params.target
 						? await page.locator(params.target).first().innerText({ timeout: 5_000 })
 						: await page.evaluate("document.body.innerText");
@@ -193,29 +346,41 @@ export function installNavigateur(pi: ExtensionAPI) {
 					out = { title: await page.title(), url: page.url(), text: clean.length > 12_000 ? `${clean.slice(0, 12_000)}\n[… truncated]` : clean };
 					break;
 				}
-				case "click":
+				case "click": {
 					if (!params.target) throw new Error("click needs a target");
-					await locate(page, params.target).click({ timeout: 10_000 });
-					await settle(page);
-					out = await state(page, 1200);
+					const el = locate(page, params.target);
+					const label = ((await el.innerText({ timeout: 3_000 }).catch(() => "")) || params.target).replace(/\s+/g, " ").trim().slice(0, 60);
+					await say(s, ` clique sur « ${label} »`);
+					await click(s, el);
+					await settle(s.page);
+					out = await state(s.page, 1200);
+					if (await blocked(s.page)) out.text += BLOCKED_NOTE;
 					break;
+				}
 				case "type": {
 					if (!params.target || params.text === undefined) throw new Error("type needs target and text");
 					const el = locate(page, params.target);
-					await el.fill(params.text, { timeout: 10_000 });
+					await say(s, ` écrit « ${params.text.slice(0, 50)} »`);
+					await click(s, el);
+					await el.fill("", { timeout: 5_000 }).catch(() => {});
+					await page.keyboard.type(params.text, { delay: s.headless ? 0 : 35 });
 					if (params.submit) {
-						await el.press("Enter");
+						await page.keyboard.press("Enter");
 						await settle(page);
 					}
 					out = await state(page, params.submit ? 1200 : 0);
 					break;
 				}
-				case "scroll":
-					await page.mouse.wheel(0, params.text === "up" ? -VIEWPORT.height * 0.8 : VIEWPORT.height * 0.8);
-					await page.waitForTimeout(400);
+				case "scroll": {
+					const up = params.text === "up";
+					await say(s, up ? " remonte" : " fait défiler la page");
+					await page.mouse.wheel(0, up ? -SIZE.height * 0.75 : SIZE.height * 0.75);
+					await page.waitForTimeout(500);
 					out = await state(page, 0);
 					break;
+				}
 				case "back":
+					await say(s, " revient en arrière");
 					await page.goBack({ timeout: 15_000 }).catch(() => {});
 					await settle(page);
 					out = await state(page, 1200);
@@ -228,6 +393,7 @@ export function installNavigateur(pi: ExtensionAPI) {
 
 		renderCall(args: any, theme: Theme) {
 			const verbs: Record<string, string> = {
+				search: "cherche",
 				open: "ouvre",
 				screenshot: "regarde la page",
 				read: "lit la page",
@@ -236,7 +402,10 @@ export function installNavigateur(pi: ExtensionAPI) {
 				scroll: args?.text === "up" ? "remonte" : "fait défiler",
 				back: "revient en arrière",
 			};
-			const what = args?.url ?? (args?.target ? `[${String(args.target).replace(/^\[|\]$/g, "")}]` : "");
+			const what =
+				args?.action === "search"
+					? `« ${args?.text ?? args?.target ?? ""} »`
+					: (args?.url ?? (args?.target ? `[${String(args.target).replace(/^\[|\]$/g, "")}]` : ""));
 			return new Text(
 				`${theme.fg("accent", "θ")} ${theme.bold(theme.fg("toolTitle", "Navigateur"))} ${theme.fg("muted", verbs[args?.action] ?? args?.action ?? "")} ${theme.fg("text", what)}${
 					args?.action === "type" && args?.text ? theme.fg("muted", ` « ${String(args.text).slice(0, 40)} »`) : ""

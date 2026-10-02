@@ -138,7 +138,7 @@ function headerLines(width: number, theme: Theme, ctx: ExtensionContext, info: H
 	return lines.map((l) => truncateToWidth(l, width));
 }
 
-const HINTS: [string, string][] = [["Échap", "interrompre"], ["Alt+U", "Lycée"], ["Ctrl+L", "modèle"], ["Maj+Tab", "réflexion"], ["Ctrl+O", "déplier"], ["Ctrl+C ×2", "quitter"]];
+const HINTS: [string, string][] = [["Échap", "interrompre"], ["Alt+U", "Lycée"], ["Ctrl+L", "modèle"], ["Maj+Tab", "réflexion"], ["Ctrl+O", "déplier"], ["/clear", "repartir de zéro"], ["/exit", "quitter"]];
 
 function hintLines(width: number, theme: Theme): string[] {
 	const items = HINTS.map(([k, v]) => `${theme.fg("muted", k)} ${theme.fg("dim", v)}`);
