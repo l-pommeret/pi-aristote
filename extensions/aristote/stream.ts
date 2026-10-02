@@ -66,7 +66,7 @@ function rewriteError(message: string): string {
 	if (/Unknown model|NotFoundError|404/i.test(message))
 		return `Aristote : ce modèle n'est plus servi (${message.slice(0, 120)}). Tape /aristote refresh puis /model.`;
 	if (/401|unauthori[sz]ed|invalid.*(key|token)/i.test(message))
-		return `Aristote : clé API refusée. Tape /aristote key sk-… (${message.slice(0, 80)})`;
+		return `Aristote : clé API refusée. Récupère ta clé sur https://aristote.education/llm-access/ puis tape /aristote key sk-… (${message.slice(0, 80)})`;
 	return message;
 }
 

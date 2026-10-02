@@ -54,7 +54,7 @@ h1 { font-size: clamp(28px, 4.4vw, 46px); line-height: 1.1; margin: 0 0 14px; le
 h1 em { font-style: normal; color: var(--jaune); }
 .lede { font-size: clamp(16px, 2vw, 19px); color: var(--doux); max-width: 680px; margin: 0; }
 
-.install { margin: 36px 0 12px; }
+.install { margin: 0 0 12px; }
 .cmd {
 	display: flex; align-items: stretch; border-radius: 14px; overflow: hidden;
 	background: #0d0e28; border: 1px solid var(--marine-3);
@@ -80,6 +80,32 @@ h1 em { font-style: normal; color: var(--jaune); }
 }
 .hint a { color: var(--sarcelle-clair); }
 
+.cle {
+	display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center;
+	margin: 34px 0 0; padding: 18px 20px; border-radius: 14px;
+	background: linear-gradient(120deg, rgba(26, 140, 166, .18), rgba(242, 188, 60, .10));
+	border: 1px solid rgba(91, 184, 206, .35);
+}
+.cle .num {
+	display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+	font-weight: 800; color: var(--marine); background: var(--sarcelle-clair);
+}
+.cle b { display: block; font-size: 17px; margin-bottom: 2px; }
+.cle p { margin: 0; color: var(--doux); font-size: 15px; }
+.cle ol { margin: 6px 0 0; padding-left: 20px; color: var(--doux); font-size: 15px; }
+.cle code { font: 13px "JetBrains Mono", monospace; background: #0d0e28; padding: 2px 6px; border-radius: 5px; color: var(--texte); }
+.btn-cle {
+	display: inline-block; text-decoration: none; white-space: nowrap;
+	font: 600 15px Inter, sans-serif; color: var(--marine); background: var(--sarcelle-clair);
+	padding: 12px 18px; border-radius: 10px; transition: background .15s;
+}
+.btn-cle:hover { background: #7fcde0; }
+.etape { font: 600 13px Inter, sans-serif; color: var(--jaune); letter-spacing: .04em; text-transform: uppercase; margin: 22px 0 8px; }
+@media (max-width: 640px) {
+	.cle { grid-template-columns: 1fr; }
+	.cle .num { display: none; }
+	.btn-cle { text-align: center; }
+}
 section { padding: 44px 0 8px; }
 h2 { font-size: 24px; margin: 0 0 18px; letter-spacing: -.01em; }
 h2 small { display: block; font-size: 15px; font-weight: 400; color: var(--doux); margin-top: 4px; }
@@ -151,6 +177,21 @@ footer a { color: var(--sarcelle-clair); }
 		<h1>Un agent de code dans ton terminal,<br><em>propulsé par Aristote.</em></h1>
 		<p class="lede">pi, l'agent de code open source, réglé aux petits oignons pour les modèles souverains d'Aristote : les nouveaux modèles apparaissent tout seuls, les réponses vides sont relancées, les boucles coupées, et le mode Ultracode fait travailler toute une équipe en parallèle.</p>
 
+		<div class="cle">
+			<div class="num">1</div>
+			<div>
+				<b>Récupère ta clé API Aristote</b>
+				<ol>
+					<li>Ouvre la page d'accès d'Aristote et connecte-toi avec ton compte universitaire.</li>
+					<li>À l'étape « 01 · Obtenir votre clé d'API », copie la clé : elle commence par <code>sk-</code>.</li>
+					<li>Garde-la sous la main : l'installation te la demandera.</li>
+				</ol>
+				<p style="margin-top:8px;font-size:13px">Réservé à l'Université Paris-Saclay, à ses composantes et à ses universités membres associées.</p>
+			</div>
+			<a class="btn-cle" href="https://aristote.education/llm-access/" target="_blank" rel="noopener">Obtenir ma clé ↗</a>
+		</div>
+
+		<p class="etape">2 · Installe en une commande</p>
 		<div class="install">
 			<div class="cmd">
 				<code id="cmd"><span class="p">$ </span>curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh</code>
@@ -201,7 +242,7 @@ footer a { color: var(--sarcelle-clair); }
 
 	<section>
 		<h2>Questions</h2>
-		<details><summary>Où trouver ma clé API Aristote ?</summary><p>Elle commence par <code>sk-</code> et t'est fournie par Aristote. L'installateur la demande et la vérifie. Tu peux aussi la changer plus tard dans pi avec <code>/aristote key sk-…</code>.</p></details>
+		<details><summary>Où trouver ma clé API Aristote ?</summary><p>Sur <a href="https://aristote.education/llm-access/" style="color:var(--sarcelle-clair)">aristote.education/llm-access</a>, après connexion avec ton compte universitaire (Université Paris-Saclay et universités associées). Elle commence par <code>sk-</code>. L'installateur la demande et la vérifie ; tu peux la changer plus tard dans pi avec <code>/aristote key sk-…</code>.</p><p>Inutile de noter la liste des modèles envoyée par email : l'extension la récupère toute seule. Attention, « Régénérer la clé » sur la page d'Aristote invalide l'ancienne : il faudra alors refaire <code>/aristote key</code>.</p></details>
 		<details><summary>Comment mettre à jour ?</summary><p>Dans pi, tape <code>/aristote maj</code> : pi te prévient tout seul quand une nouvelle version est disponible. Tu peux aussi relancer la commande d'installation.</p></details>
 		<details><summary>Et sous Windows ?</summary><p>Utilise WSL (Ubuntu) et la commande ci-dessus. Une version PowerShell native viendra si le besoin se fait sentir.</p></details>
 		<details><summary>Qu'est-ce qui est installé, et où ?</summary>

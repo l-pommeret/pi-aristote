@@ -69,7 +69,7 @@ export default async function (pi: ExtensionAPI) {
 	const refresh = (force = false): Promise<string> => {
 		if (refreshing) return refreshing;
 		refreshing = (async () => {
-			if (!key) return "pas de clé API (/aristote key sk-…)";
+			if (!key) return "pas de clé API : récupère-la sur https://aristote.education/llm-access/ puis /aristote key sk-…";
 			const downBefore = cache.ids.filter((id) => cache.probes[id]?.ok === false);
 			const before = JSON.stringify(visibleIds(cache).map((id) => [id, specFor(id, cache.probes[id])]));
 			const ids = await fetchModelIds(key, 15000);
@@ -165,7 +165,8 @@ export default async function (pi: ExtensionAPI) {
 			const [sub, value] = args.trim().split(/\s+/, 2);
 
 			if (sub === "key") {
-				if (!value?.startsWith("sk-")) return ctx.ui.notify("Usage : /aristote key sk-…", "warning");
+				if (!value?.startsWith("sk-"))
+					return ctx.ui.notify("Usage : /aristote key sk-…  (ta clé est sur https://aristote.education/llm-access/)", "warning");
 				saveApiKey(value);
 				({ key, source: keySource } = resolveApiKey());
 				register();

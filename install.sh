@@ -126,10 +126,11 @@ try { const a = require(process.env.AGENT_DIR + "/auth.json"); process.stdout.wr
 if [ -z "$has_key" ] && [ -z "${ARISTOTE_API_KEY:-}" ]; then
 	printf '\n'
 	say "Il faut ta clé API Aristote (elle commence par ${B}sk-${Z})."
+	printf '  %sTu la trouves ici, après connexion avec ton compte universitaire :%s %s%s%s\n' "$D" "$Z" "$S" "https://aristote.education/llm-access/" "$Z"
 	while :; do
 		ask_secret "  Colle-la ici (rien ne s'affiche, c'est normal) : "
 		key="$(printf '%s' "$REPLY" | tr -d '[:space:]')"
-		[ -z "$key" ] && { printf '  %sPas de clé : tu pourras la donner plus tard dans pi avec /aristote key sk-…%s\n' "$D" "$Z"; break; }
+		[ -z "$key" ] && { printf '  %sPas de clé : récupère-la sur https://aristote.education/llm-access/ puis tape /aristote key sk-… dans pi%s\n' "$D" "$Z"; break; }
 		code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $key" https://llm.aristote.education/v1/models || true)"
 		if [ "$code" = 200 ]; then
 			AGENT_DIR="$AGENT_DIR" KEY="$key" node -e '

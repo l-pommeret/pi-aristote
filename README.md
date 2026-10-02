@@ -8,6 +8,8 @@
 curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh
 ```
 
+Avant tout, récupère ta clé API sur **https://aristote.education/llm-access/** (connexion avec ton compte universitaire : Université Paris-Saclay et universités associées). Elle commence par `sk-`.
+
 La commande installe Node.js si besoin (version privée, sans sudo), pi, l'extension et le thème, puis demande ta clé API Aristote. Elle sert aussi à mettre à jour ; depuis pi, `/aristote maj` fait la même chose.
 
 ## Ce que fait l'extension
