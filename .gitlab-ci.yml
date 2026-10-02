@@ -3,7 +3,7 @@ pages:
   script:
     - mkdir -p public
     - tar -czf public/pi-aristote.tar.gz extensions themes
-    - cp install.sh site/index.html public/
+    - cp install.sh site/* public/
     - cp extensions/aristote/VERSION public/VERSION
   artifacts:
     paths:

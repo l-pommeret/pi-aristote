@@ -40,14 +40,8 @@ const FALLBACK_IDS = ["qwen-3.8-27b", "qwen-3.6-35b-instruct", "gemma-4-31b"];
 
 const SYSTEM_ADDENDUM = `
 
-## Langue (IMPORTANT)
-Tout texte visible par l'utilisateur est en français, y compris les courtes phrases avant un appel d'outil et les résumés (sauf si l'utilisateur écrit dans une autre langue). Le code, les commandes et les identifiants restent tels quels.
-N'utilise pas d'emojis : ils s'affichent mal dans un terminal et cassent les alignements (préfère ✓, ✗, →, ou du texte).
-
-## Tool use rules (important for this model)
-- To act, emit the tool call itself. Never write "I will run…" or show a command instead of calling the tool: a message without a tool call ends your turn and nothing is executed.
-- Keep reasoning short and do not repeat yourself. If the same approach fails twice, change approach or ask the user.
-- When exploring, batch independent tool calls in the same turn.`;
+Reply in French unless the user writes in another language. No emojis.
+To act, call the tool; never just announce an action.`;
 
 export default async function (pi: ExtensionAPI) {
 	let { key, source: keySource } = resolveApiKey();
@@ -124,14 +118,15 @@ export default async function (pi: ExtensionAPI) {
 	}
 	register();
 
-	if (!SUBAGENT)
+	let checked = false;
+	const startupChecks = (ctx: any) => {
+		if (checked || SUBAGENT || ctx.mode !== "tui") return;
+		checked = true;
 		refresh(true)
 			.then((summary) => {
 				if (/nouveaux|de retour|tombés/.test(summary)) lastCtx?.ui.notify(`Aristote : ${summary}`, "info");
 			})
 			.catch(() => {});
-
-	if (!SUBAGENT)
 		fetch(`${SITE}/VERSION`, { signal: AbortSignal.timeout(5000) })
 			.then((r) => (r.ok ? r.text() : ""))
 			.then((v) => {
@@ -140,6 +135,7 @@ export default async function (pi: ExtensionAPI) {
 					setTimeout(() => lastCtx?.ui.notify(`Nouvelle version de l'extension Aristote (${remote}) : tape /maj`, "info"), 1500);
 			})
 			.catch(() => {});
+	};
 
 	hooks.onEmptyRetry = (attempt, max) => {
 		if (process.env.ARISTOTE_DEBUG) console.error(`[aristote] réponse vide, relance ${attempt}/${max}`);
@@ -149,6 +145,7 @@ export default async function (pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_e, ctx) => {
 		lastCtx = ctx;
+		startupChecks(ctx);
 		if (refreshing) {
 			ctx.ui.setStatus("aristote-sync", "· vérification des modèles…");
 			refreshing.finally(() => ctx.ui.setStatus("aristote-sync", undefined)).catch(() => {});

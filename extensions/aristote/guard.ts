@@ -49,14 +49,10 @@ function tailLoop(text: string, norm: (s: string) => string): string | undefined
 }
 
 const NUDGE_ANNOUNCE =
-	"[Garde-fou Aristote] Ton dernier message annonce une action mais ne contient aucun appel d'outil : rien n'a été exécuté. " +
-	"Si une action est nécessaire, émets maintenant directement l'appel d'outil, sans texte avant. " +
-	"Si la tâche est terminée, donne simplement ta réponse finale.";
+	"[guard] Your last message announced an action without a tool call; nothing ran. Call the tool now, or give your final answer if done.";
 
 const nudgeLoop = (snippet: string) =>
-	`[Garde-fou Aristote] Tu tournais en boucle (« ${snippet.slice(0, 120)} ») ; ce passage a été coupé. ` +
-	"N'annonce plus rien : émets directement le prochain appel d'outil. " +
-	"Si tu es bloqué, change d'approche ou explique brièvement le problème à l'utilisateur.";
+	`[guard] You were looping (« ${snippet.slice(0, 80)} »); that output was cut. Call the next tool directly, or change approach.`;
 
 export const guardStats = { announcements: 0, loops: 0, gaveUp: 0 };
 

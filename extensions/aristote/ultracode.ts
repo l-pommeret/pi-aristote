@@ -16,17 +16,9 @@ const OUTPUT_CAP = 8000;
 
 const ULTRA_PROMPT = `
 
-## Mode ULTRACODE (actif)
-Tu diriges une équipe de sous-agents Aristote avec l'outil \`${TOOL}\`. Chaque appel lance ses tâches EN PARALLÈLE.
-Pour toute tâche non triviale :
-1. Lance 2 à 4 éclaireurs (« Péripatéticiens ») en un seul appel, chacun sur une zone différente du projet.
-2. Si la tâche est complexe, un architecte (« Euclide ») pour le plan.
-3. Lance les ouvriers (« Héphaïstos ») en parallèle sur des fichiers DISJOINTS.
-4. Termine par un relecteur (« Socrate ») qui vérifie (tests, relecture), puis corrige si besoin.
-   Si la documentation doit suivre, confie-la à une rédactrice (« Sappho »).
-5. Fais une synthèse claire en français pour l'utilisateur.
-Les sous-agents ne voient PAS cette conversation : chaque mission doit être autonome (chemins, contexte utile, contraintes, critère de fin).
-Rédige des missions courtes (1 à 3 phrases) qui commencent par le fichier ou le dossier visé, par exemple « calc.py : corrige add et vérifie avec test_calc.py ».`;
+ULTRACODE: delegate non-trivial work with \`${TOOL}\` (tasks run in parallel; sub-agents can't see this chat).
+Usual flow: eclaireurs on separate areas, then ouvriers on disjoint files, then a relecteur; architecte for complex plans, redacteur for docs.
+Missions: 1-3 self-contained sentences starting with the target path.`;
 
 const Params = Type.Object({
 	tasks: Type.Array(
@@ -39,17 +31,12 @@ const Params = Type.Object({
 					Type.Literal("relecteur"),
 					Type.Literal("redacteur"),
 				],
-				{
-					description:
-						"eclaireur = « Péripatéticien » (exploration, lecture seule), architecte = « Euclide » (plan), " +
-						"ouvrier = « Héphaïstos » (implémentation), relecteur = « Socrate » (vérification, tests), " +
-						"redacteur = « Sappho » (documentation, README, messages de commit)",
-				},
+				{ description: "eclaireur (Péripatéticien) explores read-only, architecte (Euclide) plans, ouvrier (Héphaïstos) implements, relecteur (Socrate) verifies, redacteur (Sappho) writes docs" },
 			),
-			task: Type.String({ description: "Mission autonome et précise : le sous-agent ne voit pas la conversation." }),
-			model: Type.Optional(Type.String({ description: "Modèle Aristote (par défaut : le modèle courant)." })),
+			task: Type.String({ description: "Self-contained mission starting with the target path" }),
+			model: Type.Optional(Type.String({ description: "Aristote model id (default: current)" })),
 		}),
-		{ minItems: 1, maxItems: MAX_TASKS, description: "Tâches lancées en parallèle." },
+		{ minItems: 1, maxItems: MAX_TASKS },
 	),
 });
 
@@ -103,7 +90,7 @@ function runAgent(run: AgentRun, cwd: string, thinking: string | undefined, sign
 	const role = ROLES[run.role];
 	const args = ["--mode", "json", "-p", "--no-session", "--model", `${PROVIDER}/${run.model}`, "--tools", role.tools];
 	if (thinking) args.push("--thinking", thinking);
-	args.push("--append-system-prompt", `${role.prompt}\nRéponds en français.`, `Mission : ${run.task}`);
+	args.push("--append-system-prompt", `${role.prompt} Reply in French.`, `Mission : ${run.task}`);
 
 	return new Promise((resolve) => {
 		run.status = "en cours";
@@ -500,7 +487,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 		pi.setActiveTools(on ? [...tools, TOOL] : tools);
 		if (on && (ctx.model as any)?.reasoning) {
 			previousThinking = pi.getThinkingLevel();
-			if (previousThinking === "off" || previousThinking === "minimal" || previousThinking === "low") pi.setThinkingLevel("high");
+			pi.setThinkingLevel("high");
 		} else if (!on && previousThinking) {
 			pi.setThinkingLevel(previousThinking as any);
 			previousThinking = undefined;
@@ -515,10 +502,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 	pi.registerTool({
 		name: TOOL,
 		label: "Sous-agents",
-		description:
-			"Lance une équipe de sous-agents Aristote EN PARALLÈLE, chacun dans son propre processus et son propre contexte. " +
-			"Rôles : eclaireur (exploration, lecture seule), architecte (plan), ouvrier (implémentation, fichiers disjoints), relecteur (vérification), redacteur (documentation). " +
-			"Chaque mission doit être autonome : le sous-agent ne voit pas la conversation. Renvoie le compte rendu de chaque agent.",
+		description: "Run Aristote sub-agents in parallel, each with its own context. Returns each report.",
 		parameters: Params,
 		prepareArguments: (raw: any) => {
 			const tasks = Array.isArray(raw?.tasks) ? raw.tasks : [];
@@ -546,7 +530,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 				tokens: 0,
 				output: "",
 			}));
-			const thinking = (ctx.model as any)?.reasoning ? pi.getThinkingLevel() : undefined;
+			const thinking = "high";
 
 			const snapshot = () => runs.map((r) => ({ ...r }));
 			const update = () =>
