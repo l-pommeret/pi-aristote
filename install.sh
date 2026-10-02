@@ -42,6 +42,7 @@ if [ -z "$AUTO" ]; then
 	printf '%s ╩ ╩╩╚═╩╚═╝ ╩ ╚═╝ ╩ ╚═╝%s  %spi, l'"'"'agent de code, pour Aristote%s\n\n' "$J" "$Z" "$D" "$Z"
 fi
 
+[ -z "$AUTO" ] && ! command -v pi >/dev/null 2>&1 && printf '  %sPremière installation : compte 1 à 2 minutes.%s\n\n' "$D" "$Z"
 command -v curl >/dev/null 2>&1 || die "curl est requis."
 command -v tar >/dev/null 2>&1 || die "tar est requis."
 
@@ -53,14 +54,16 @@ node_ok() {
 install_private_node() {
 	case "$(uname -s)" in Darwin) os=darwin ;; Linux) os=linux ;; *) die "Système non pris en charge : $(uname -s)" ;; esac
 	case "$(uname -m)" in arm64 | aarch64) arch=arm64 ;; x86_64 | amd64) arch=x64 ;; *) die "Architecture non prise en charge : $(uname -m)" ;; esac
-	say "Installation d'une version privée de Node.js (sans sudo)…"
-	version="$(curl -fsSL https://nodejs.org/dist/index.json 2>/dev/null | tr '{' '\n' | grep '"lts":"' | head -1 | sed 's/.*"version":"\(v[0-9.]*\)".*/\1/')"
+	if [ "$os" = darwin ] || command -v xz >/dev/null 2>&1; then fmt=tar.xz; flag=-xJf; size="≈ 27 Mo"; else fmt=tar.gz; flag=-xzf; size="≈ 53 Mo"; fi
+	say "Installation d'une version privée de Node.js, sans sudo ($size, c'est l'étape la plus longue)…"
+	version="$(curl -fsSL https://nodejs.org/dist/index.json 2>/dev/null | tr '{' '\n' | sed -n '/"lts":"/{s/.*"version":"\(v[0-9.]*\)".*/\1/p;q;}')"
 	[ -n "$version" ] || die "Impossible de trouver la dernière version de Node.js."
 	tmp="$(mktemp -d)"
-	curl -fsSL "https://nodejs.org/dist/$version/node-$version-$os-$arch.tar.gz" -o "$tmp/node.tgz" || die "Téléchargement de Node.js impossible."
+	if [ -t 2 ]; then progress="--progress-bar"; else progress="-s"; fi
+	curl -fSL $progress "https://nodejs.org/dist/$version/node-$version-$os-$arch.$fmt" -o "$tmp/node.archive" || die "Téléchargement de Node.js impossible."
 	rm -rf "$PRIVATE_NODE"
 	mkdir -p "$PRIVATE_NODE"
-	tar -xzf "$tmp/node.tgz" -C "$PRIVATE_NODE" --strip-components=1
+	tar $flag "$tmp/node.archive" -C "$PRIVATE_NODE" --strip-components=1
 	rm -rf "$tmp"
 	PATH="$PRIVATE_NODE/bin:$PATH"
 	export PATH
@@ -85,12 +88,35 @@ PATH_CHANGED=""
 [ -x "$PRIVATE_NODE/bin/node" ] && PATH="$PRIVATE_NODE/bin:$PATH" && export PATH
 node_ok || install_private_node
 
-if ! command -v pi >/dev/null 2>&1; then
-	say "Installation de pi…"
-	if ! npm install -g --silent @earendil-works/pi-coding-agent >/dev/null 2>&1; then
-		[ -x "$PRIVATE_NODE/bin/node" ] || install_private_node
-		npm install -g --silent @earendil-works/pi-coding-agent >/dev/null || die "Installation de pi impossible (npm)."
+with_spinner() {
+	label="$1"
+	shift
+	if [ ! -t 1 ]; then
+		"$@"
+		return
 	fi
+	"$@" &
+	pid=$!
+	start=$(date +%s)
+	i=0
+	while kill -0 "$pid" 2>/dev/null; do
+		case $((i % 8)) in 0) f=α ;; 1) f=β ;; 2) f=γ ;; 3) f=δ ;; 4) f=ε ;; 5) f=ζ ;; 6) f=η ;; *) f=θ ;; esac
+		printf '\r%s%s%s %s %s%ss%s ' "$J" "$f" "$Z" "$label" "$D" "$(($(date +%s) - start))" "$Z"
+		i=$((i + 1))
+		sleep 0.15
+	done
+	printf '\r\033[K'
+	wait "$pid"
+}
+npm_pi() { npm install -g --ignore-scripts --no-audit --no-fund --loglevel=error @earendil-works/pi-coding-agent >"$NPM_LOG" 2>&1; }
+
+if ! command -v pi >/dev/null 2>&1; then
+	NPM_LOG="$(mktemp)"
+	if ! with_spinner "Installation de pi (environ 30 s)…" npm_pi; then
+		[ -x "$PRIVATE_NODE/bin/node" ] || install_private_node
+		with_spinner "Installation de pi (environ 30 s)…" npm_pi || { tail -5 "$NPM_LOG" >&2; die "Installation de pi impossible (npm)."; }
+	fi
+	rm -f "$NPM_LOG"
 	ok "pi $(pi --version 2>/dev/null || echo installé)"
 else
 	ok "pi déjà présent ($(pi --version 2>/dev/null))"
