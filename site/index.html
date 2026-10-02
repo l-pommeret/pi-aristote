@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pi × Aristote</title>
+<meta name="description" content="pi, l'agent de code, optimisé pour Aristote. Installation en une commande.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+	--marine: #141538;
+	--marine-2: #1c1e4a;
+	--marine-3: #262966;
+	--sarcelle: #1a8ca6;
+	--sarcelle-clair: #5bb8ce;
+	--orange: #e07a45;
+	--jaune: #f2bc3c;
+	--texte: #eceef7;
+	--doux: #a9abc7;
+	--vert: #7fc79a;
+}
+* { box-sizing: border-box; }
+html { background: var(--marine); }
+body {
+	margin: 0;
+	font-family: Inter, system-ui, sans-serif;
+	color: var(--texte);
+	background:
+		radial-gradient(1000px 500px at 85% -10%, rgba(26, 140, 166, .22), transparent 60%),
+		radial-gradient(900px 500px at -10% 20%, rgba(224, 122, 69, .13), transparent 60%),
+		var(--marine);
+	line-height: 1.55;
+	-webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+.stripes { height: 6px; background: linear-gradient(90deg, var(--sarcelle) 0 33.3%, var(--orange) 33.3% 66.6%, var(--jaune) 66.6%); }
+header { padding: 56px 0 24px; }
+.ascii {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-weight: 600;
+	font-size: clamp(5px, 1.55vw, 14px);
+	line-height: 1.12;
+	white-space: pre;
+	margin: 0 0 28px;
+	background: linear-gradient(90deg, var(--sarcelle), var(--orange) 55%, var(--jaune));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	overflow: hidden;
+}
+h1 { font-size: clamp(28px, 4.4vw, 46px); line-height: 1.1; margin: 0 0 14px; letter-spacing: -.02em; font-weight: 800; }
+h1 em { font-style: normal; color: var(--jaune); }
+.lede { font-size: clamp(16px, 2vw, 19px); color: var(--doux); max-width: 680px; margin: 0; }
+
+.install { margin: 36px 0 12px; }
+.cmd {
+	display: flex; align-items: stretch; border-radius: 14px; overflow: hidden;
+	background: #0d0e28; border: 1px solid var(--marine-3);
+	box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+}
+.cmd code {
+	flex: 1; padding: 18px 20px; font: 15px "JetBrains Mono", monospace; color: var(--texte);
+	overflow-x: auto; white-space: nowrap; scrollbar-width: thin;
+}
+.cmd code .p { color: var(--sarcelle-clair); user-select: none; }
+.copy {
+	border: 0; padding: 0 26px; font: 600 15px Inter, sans-serif; cursor: pointer;
+	color: var(--marine); background: var(--jaune); transition: background .15s, transform .1s;
+	white-space: nowrap;
+}
+.copy:hover { background: #ffd062; }
+.copy:active { transform: scale(.97); }
+.copy.done { background: var(--vert); }
+.hint { color: var(--doux); font-size: 14px; margin: 12px 2px 0; }
+.hint kbd {
+	font: 12px "JetBrains Mono", monospace; background: var(--marine-2); border: 1px solid var(--marine-3);
+	border-radius: 5px; padding: 1px 6px; color: var(--texte);
+}
+.hint a { color: var(--sarcelle-clair); }
+
+section { padding: 44px 0 8px; }
+h2 { font-size: 24px; margin: 0 0 18px; letter-spacing: -.01em; }
+h2 small { display: block; font-size: 15px; font-weight: 400; color: var(--doux); margin-top: 4px; }
+.steps { counter-reset: s; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.step {
+	background: var(--marine-2); border: 1px solid var(--marine-3); border-radius: 14px; padding: 18px 18px 16px;
+	position: relative;
+}
+.step::before {
+	counter-increment: s; content: counter(s);
+	display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+	font-weight: 700; font-size: 14px; color: var(--marine); background: var(--sarcelle-clair); margin-bottom: 10px;
+}
+.step:nth-child(2)::before { background: var(--orange); }
+.step:nth-child(3)::before { background: var(--jaune); }
+.step b { display: block; margin-bottom: 4px; }
+.step p { margin: 0; color: var(--doux); font-size: 15px; }
+
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+.card { background: var(--marine-2); border: 1px solid var(--marine-3); border-radius: 14px; padding: 18px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; display: flex; gap: 10px; align-items: center; }
+.card p { margin: 0; color: var(--doux); font-size: 15px; }
+.ico { font-family: "JetBrains Mono", monospace; font-weight: 600; color: var(--jaune); font-size: 18px; width: 22px; text-align: center; }
+
+.lycee { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.disciple { border-radius: 14px; padding: 16px; background: linear-gradient(160deg, var(--marine-2), #17183f); border: 1px solid var(--marine-3); }
+.disciple .g { font: 600 30px "JetBrains Mono", monospace; line-height: 1; }
+.disciple:nth-child(1) .g { color: var(--sarcelle-clair); }
+.disciple:nth-child(2) .g { color: var(--vert); }
+.disciple:nth-child(3) .g { color: var(--orange); }
+.disciple:nth-child(4) .g { color: var(--jaune); }
+.disciple b { display: block; margin: 8px 0 2px; }
+.disciple code { font: 13px "JetBrains Mono", monospace; color: var(--sarcelle-clair); }
+.disciple p { margin: 6px 0 0; color: var(--doux); font-size: 14px; }
+
+.term {
+	background: #0d0e28; border: 1px solid var(--marine-3); border-radius: 14px; padding: 16px 18px;
+	font: 13px/1.6 "JetBrains Mono", monospace; color: var(--texte); overflow-x: auto; white-space: pre;
+}
+.term .s { color: var(--sarcelle-clair); } .term .o { color: var(--orange); } .term .j { color: var(--jaune); }
+.term .v { color: var(--vert); } .term .d { color: #6d6f93; }
+
+details { background: var(--marine-2); border: 1px solid var(--marine-3); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+summary { cursor: pointer; font-weight: 600; }
+details p, details li { color: var(--doux); font-size: 15px; }
+details code, p code { font: 13px "JetBrains Mono", monospace; background: #0d0e28; padding: 2px 6px; border-radius: 5px; color: var(--texte); }
+
+footer { padding: 48px 0 60px; color: var(--doux); font-size: 14px; }
+footer a { color: var(--sarcelle-clair); }
+
+@media (max-width: 560px) {
+	header { padding-top: 36px; }
+	.cmd { flex-direction: column; }
+	.copy { padding: 14px; }
+	.cmd code { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="stripes"></div>
+<div class="wrap">
+	<header>
+<pre class="ascii" aria-hidden="true"> █████╗ ██████╗ ██╗███████╗████████╗ ██████╗ ████████╗███████╗
+██╔══██╗██╔══██╗██║██╔════╝╚══██╔══╝██╔═══██╗╚══██╔══╝██╔════╝
+███████║██████╔╝██║███████╗   ██║   ██║   ██║   ██║   █████╗
+██╔══██║██╔══██╗██║╚════██║   ██║   ██║   ██║   ██║   ██╔══╝
+██║  ██║██║  ██║██║███████║   ██║   ╚██████╔╝   ██║   ███████╗
+╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝   ╚═╝    ╚═════╝    ╚═╝   ╚══════╝</pre>
+		<h1>Un agent de code dans ton terminal,<br><em>propulsé par Aristote.</em></h1>
+		<p class="lede">pi, l'agent de code open source, réglé aux petits oignons pour les modèles souverains d'Aristote : les nouveaux modèles apparaissent tout seuls, les réponses vides sont relancées, les boucles coupées, et le mode Ultracode fait travailler toute une équipe en parallèle.</p>
+
+		<div class="install">
+			<div class="cmd">
+				<code id="cmd"><span class="p">$ </span>curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh</code>
+				<button class="copy" id="copy" type="button">Copier</button>
+			</div>
+			<p class="hint">Ouvre un terminal, colle avec <kbd>⌘ V</kbd> (ou <kbd>Ctrl ⇧ V</kbd>), appuie sur <kbd>Entrée</kbd>. C'est tout. La même commande sert aussi à mettre à jour.</p>
+		</div>
+	</header>
+
+	<section>
+		<h2>Ce que fait la commande <small>Sans sudo, sans rien casser, en une minute environ.</small></h2>
+		<div class="steps">
+			<div class="step"><b>Installe ce qu'il faut</b><p>Node.js si besoin (une version privée, dans ton dossier), puis pi.</p></div>
+			<div class="step"><b>Branche Aristote</b><p>L'extension, le thème, et ta clé API, vérifiée puis rangée dans <code>~/.pi/agent</code>.</p></div>
+			<div class="step"><b>Lance pi</b><p>Tu n'as plus qu'à décrire ce que tu veux. Ensuite, tape simplement <code>pi</code> dans n'importe quel projet.</p></div>
+		</div>
+	</section>
+
+	<section>
+		<h2>Pourquoi cette version <small>Tout ce qui manquait pour travailler confortablement avec Aristote.</small></h2>
+		<div class="grid">
+			<div class="card"><h3><span class="ico">↻</span>Plus jamais « continue »</h3><p>La passerelle d'Aristote renvoie parfois une réponse vide. L'extension relance la requête toute seule, sans que tu le voies.</p></div>
+			<div class="card"><h3><span class="ico">◇</span>Modèles toujours à jour</h3><p>La liste vient d'Aristote à chaque lancement. Les nouveaux modèles sont mesurés automatiquement, les modèles en panne masqués.</p></div>
+			<div class="card"><h3><span class="ico">σ</span>Garde-fou anti-boucle</h3><p>Le modèle annonce une action sans la faire, ou se répète ? Il est coupé et remis sur le droit chemin.</p></div>
+			<div class="card"><h3><span class="ico">⌁</span>Contexte maîtrisé</h3><p>La taille des réponses s'adapte à la place restante : fini les erreurs 500 incompréhensibles en fin de session.</p></div>
+		</div>
+	</section>
+
+	<section>
+		<h2>⚡ Mode Ultracode <small><kbd style="font:12px 'JetBrains Mono';background:#1c1e4a;border:1px solid #262966;border-radius:5px;padding:1px 6px">Alt U</kbd>, <code>/ultracode</code>, ou le mot « ultracode » dans ta demande : le Lycée entre en session.</small></h2>
+		<div class="lycee">
+			<div class="disciple"><div class="g">π</div><b>Péripatéticien</b><code>/peripateticien</code><p>Explore le code en se promenant, sans rien toucher.</p></div>
+			<div class="disciple"><div class="g">ε</div><b>Euclide</b><code>/euclide</code><p>Trace le plan d'implémentation.</p></div>
+			<div class="disciple"><div class="g">η</div><b>Héphaïstos</b><code>/hephaistos</code><p>Forge le code demandé, sur ses fichiers à lui.</p></div>
+			<div class="disciple"><div class="g">σ</div><b>Socrate</b><code>/socrate</code><p>Questionne tout et lance les tests.</p></div>
+		</div>
+		<p class="hint">Chaque disciple est un vrai processus pi, avec son propre contexte. Ils travaillent en parallèle, puis le modèle principal fait la synthèse.</p>
+<div class="term"><span class="j">▌▌▌</span> Ultracode <span class="d">· 4 disciples du Lycée partent en promenade</span>
+<span class="v">✓</span> <span class="d">1.</span> <span class="s">π Péripatéticien</span>  Explore src/api et résume les routes
+    <span class="d">qwen-3.8-27b · 7s · 2 tours · 3 outils</span>  ## Routes de l'API…
+<span class="j">⠙</span> <span class="d">2.</span> <span class="s">π Péripatéticien</span>  Explore les tests et la CI
+    <span class="d">qwen-3.8-27b · 5s · 1 tour · 2 outils</span>  <span class="d">→ lecture .gitlab-ci.yml</span>
+<span class="j">⠙</span> <span class="d">3.</span> <span class="o">η Héphaïstos</span>  Ajoute la pagination à /users
+    <span class="d">qwen-3.8-27b · 4s · 1 tour · 1 outil</span>  <span class="d">→ édition src/api/users.py</span>
+<span class="d">○</span> <span class="d">4.</span> <span class="j">σ Socrate</span>  Lance la suite de tests et relis le diff
+<span class="d">── η Diogène cherche un humain… et un bug ──</span></div>
+	</section>
+
+	<section>
+		<h2>Questions</h2>
+		<details><summary>Où trouver ma clé API Aristote ?</summary><p>Elle commence par <code>sk-</code> et t'est fournie par Aristote. L'installateur la demande et la vérifie. Tu peux aussi la changer plus tard dans pi avec <code>/aristote key sk-…</code>.</p></details>
+		<details><summary>Comment mettre à jour ?</summary><p>Dans pi, tape <code>/aristote maj</code> : pi te prévient tout seul quand une nouvelle version est disponible. Tu peux aussi relancer la commande d'installation.</p></details>
+		<details><summary>Et sous Windows ?</summary><p>Utilise WSL (Ubuntu) et la commande ci-dessus. Une version PowerShell native viendra si le besoin se fait sentir.</p></details>
+		<details><summary>Qu'est-ce qui est installé, et où ?</summary>
+			<ul>
+				<li>pi, via npm (dans ton Node.js, ou dans <code>~/.local/share/pi-aristote/node</code> s'il a fallu en installer un) ;</li>
+				<li>l'extension dans <code>~/.pi/agent/extensions/aristote</code> et le thème dans <code>~/.pi/agent/themes</code> ;</li>
+				<li>ta clé dans <code>~/.pi/agent/auth.json</code> (lisible par toi seul).</li>
+			</ul>
+			<p>Pour tout désinstaller : <code>rm -rf ~/.pi/agent/extensions/aristote</code>, puis <code>npm uninstall -g @earendil-works/pi-coding-agent</code> si tu veux aussi retirer pi.</p>
+		</details>
+		<details><summary>Je veux lire le code avant de l'exécuter</summary><p>Très bonne idée : <a href="install.sh">install.sh</a> et le <a href="https://gitlab.lisn.upsaclay.fr/vibe-coding/pi-aristote">dépôt GitLab</a>. Tu peux aussi télécharger l'extension seule : <a href="pi-aristote.tar.gz">pi-aristote.tar.gz</a>.</p></details>
+	</section>
+
+	<footer>
+		<div class="stripes" style="border-radius:3px;margin-bottom:18px;width:120px"></div>
+		vibe-coding · LISN — <a href="https://gitlab.lisn.upsaclay.fr/vibe-coding/pi-aristote">code source</a> · construit sur <a href="https://pi.dev">pi</a> et <a href="https://aristote.education">Aristote</a>
+	</footer>
+</div>
+<script>
+const btn = document.getElementById("copy");
+const text = "curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh";
+btn.addEventListener("click", async () => {
+	try {
+		await navigator.clipboard.writeText(text);
+	} catch {
+		const r = document.createRange();
+		r.selectNodeContents(document.getElementById("cmd"));
+		const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+		document.execCommand("copy");
+	}
+	btn.textContent = "Copié ✓";
+	btn.classList.add("done");
+	setTimeout(() => { btn.textContent = "Copier"; btn.classList.remove("done"); }, 1800);
+});
+</script>
+</body>
+</html>
