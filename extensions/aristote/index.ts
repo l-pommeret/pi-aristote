@@ -84,11 +84,14 @@ export default async function (pi: ExtensionAPI) {
 			const after = JSON.stringify(visibleIds(cache).map((id) => [id, specFor(id, cache.probes[id])]));
 			if (after !== before) register();
 			const down = ids.filter((id) => cache.probes[id]?.ok === false);
+			const back = downBefore.filter((id) => ids.includes(id) && !down.includes(id));
+			const fallen = down.filter((id) => !downBefore.includes(id));
 			return [
 				`${ids.length - down.length} modèles disponibles`,
 				added.length ? `nouveaux : ${added.join(", ")}` : "",
+				back.length ? `de retour : ${back.join(", ")}` : "",
+				fallen.length ? `tombés en panne : ${fallen.join(", ")}` : "",
 				down.length ? `hors service masqués : ${down.join(", ")}` : "",
-				down.some((id) => !downBefore.includes(id)) ? "!" : "",
 			]
 				.filter(Boolean)
 				.join(" · ");
@@ -108,11 +111,12 @@ export default async function (pi: ExtensionAPI) {
 	}
 	register();
 
-	if (!SUBAGENT) refresh()
-		.then((summary) => {
-			if (/nouveaux|!$/.test(summary)) lastCtx?.ui.notify(`Aristote : ${summary.replace(/ · !$/, "")}`, "info");
-		})
-		.catch(() => {});
+	if (!SUBAGENT)
+		refresh(true)
+			.then((summary) => {
+				if (/nouveaux|de retour|tombés/.test(summary)) lastCtx?.ui.notify(`Aristote : ${summary}`, "info");
+			})
+			.catch(() => {});
 
 	if (!SUBAGENT)
 		fetch(`${SITE}/VERSION`, { signal: AbortSignal.timeout(5000) })
@@ -132,6 +136,10 @@ export default async function (pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_e, ctx) => {
 		lastCtx = ctx;
+		if (refreshing) {
+			ctx.ui.setStatus("aristote-sync", "Α vérification des modèles…");
+			refreshing.finally(() => ctx.ui.setStatus("aristote-sync", undefined)).catch(() => {});
+		}
 	});
 	pi.on("turn_start", async (_e, ctx) => {
 		lastCtx = ctx;
@@ -193,7 +201,7 @@ export default async function (pi: ExtensionAPI) {
 
 			if (sub === "key" || sub === "refresh") {
 				try {
-					ctx.ui.notify(`Aristote : ${(await refresh(true)).replace(/ · !$/, "")}`, "info");
+					ctx.ui.notify(`Aristote : ${await refresh(true)}`, "info");
 				} catch (e) {
 					ctx.ui.notify(`Aristote injoignable : ${e instanceof Error ? e.message : e}`, "error");
 				}
