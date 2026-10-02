@@ -249,10 +249,10 @@ const SMALL: Record<string, string[]> = {
 	E: ["╔═╗", "║╣ ", "╚═╝"],
 };
 const word = (font: Record<string, string[]>) => font.U.map((_, row) => [..."ULTRACODE"].map((c) => font[c][row]).join(""));
-const SPARKS = ["✦", "✧", "⋆", "⚡", "·", "✶"];
+const SPARKS = ["α", "β", "γ", "δ", "λ", "μ", "π", "σ", "φ", "ψ", "Ω", "·"];
 
 function flashFrame(frame: number, total: number, width: number, theme: Theme, on: boolean): string[] {
-	const art = width >= 80 ? word(BIG) : width >= 32 ? word(SMALL) : ["⚡ ULTRACODE"];
+	const art = width >= 80 ? word(BIG) : width >= 32 ? word(SMALL) : ["Ω ULTRACODE"];
 	const w = [...art[0]].length;
 	const pad = " ".repeat(Math.max(0, Math.floor((width - w) / 2)));
 	const reveal = Math.min(1, frame / (total * 0.5));
@@ -278,7 +278,7 @@ function flashFrame(frame: number, total: number, width: number, theme: Theme, o
 			.join("");
 
 	const subtitle = on
-		? `⚡ ULTRACODE · Le Lycée entre en session · « Le tout est plus que la somme de ses parties » ⚡`
+		? `Ω ULTRACODE · Le Lycée entre en session · « Le tout est plus que la somme de ses parties » Ω`
 		: `Fin de la séance · les péripatéticiens rentrent de promenade`;
 	const sub = settled ? (on ? theme.bold(theme.fg("accent", subtitle)) : theme.fg("muted", subtitle)) : "";
 	const subPad = " ".repeat(Math.max(0, Math.floor((width - visibleWidth(subtitle)) / 2)));
@@ -314,7 +314,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 	let previousThinking: string | undefined;
 
 	const badge = () => {
-		return `${TRUECOLOR ? rgb(LISN.jaune, "\x1b[1m⚡ ULTRACODE\x1b[22m") : "⚡ ULTRACODE"} · Lycée en session`;
+		return `${TRUECOLOR ? rgb(LISN.jaune, "\x1b[1mΩ ULTRACODE\x1b[22m") : "Ω ULTRACODE"} · Lycée en session`;
 	};
 
 	const setMode = async (ctx: ExtensionContext, on: boolean, opts: { quiet?: boolean } = {}) => {
@@ -396,7 +396,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 
 		renderCall(args: any, theme) {
 			const tasks: any[] = args?.tasks ?? [];
-			const head = `${TRUECOLOR ? rgb(LISN.sarcelle, "▌") + rgb(LISN.orange, "▌") + rgb(LISN.jaune, "▌") : "⚡"} ${theme.bold(theme.fg("toolTitle", "Ultracode"))} ${theme.fg("muted", `· ${tasks.length} disciple${tasks.length > 1 ? "s" : ""} du Lycée ${tasks.length > 1 ? "partent" : "part"} en promenade`)}`;
+			const head = `${TRUECOLOR ? rgb(LISN.jaune, "Ω") : theme.fg("accent", "Ω")} ${theme.bold(theme.fg("toolTitle", "Ultracode"))} ${theme.fg("muted", `· ${tasks.length} disciple${tasks.length > 1 ? "s" : ""} du Lycée ${tasks.length > 1 ? "partent" : "part"} en promenade`)}`;
 			return new Text(head, 0, 0);
 		},
 

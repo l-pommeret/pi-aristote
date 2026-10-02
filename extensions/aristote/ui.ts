@@ -68,14 +68,15 @@ export function bannerArt(width: number, theme: Theme): string[] {
 	if (width >= 82) {
 		const letters = word(BIG);
 		const art = letters.map((l, i) => ` ${marble(TEMPLE[i], theme)}  ${gradient(l, theme)}`);
-		return [...meander(80, theme), ...art, ...meander(80, theme, true)];
+		const grec = `${" ".repeat(18)}${gold("Α  Ρ  Ι  Σ  Τ  Ο  Τ  Ε  Λ  Η  Σ", theme)}${theme.fg("dim", "   ὁ φιλόσοφος")}`;
+		return [...meander(80, theme), ...art, grec, ...meander(80, theme, true)];
 	}
 	if (width >= 36) {
 		const letters = word(SMALL);
 		const art = letters.map((l, i) => ` ${marble(TEMPLE_SMALL[i], theme)}  ${gradient(l, theme)}`);
 		return [...meander(33, theme), ...art, ...meander(33, theme, true)];
 	}
-	return [`${gold("◆", theme)} ${gradient("ARISTOTE", theme)}`];
+	return [`${gold("Α", theme)} ${gradient("ARISTOTE", theme)}`];
 }
 
 export interface HeaderInfo {
@@ -97,12 +98,12 @@ function headerLines(width: number, theme: Theme, ctx: ExtensionContext, info: H
 	const lines = [
 		...bannerArt(width, theme),
 		"",
-		`  ${gold("◆", theme)} ${marble("L'IA souveraine de l'enseignement supérieur", theme)}`,
+		`  ${gold("Α", theme)} ${marble("L'IA souveraine de l'enseignement supérieur", theme)}`,
 		`  ${theme.fg("muted", "modèle")}  ${theme.bold(theme.fg("accent", m?.id ?? "—"))}${sep}${theme.fg("muted", features.join(" · "))}`,
 		`  ${theme.fg("muted", "dépôt ")}  ${theme.fg("text", basename(ctx.cwd))}${sep}${theme.fg("success", `${info.available} modèles disponibles`)}${
 			info.hidden ? `${sep}${theme.fg("warning", `${info.hidden} hors service`)}` : ""
 		}`,
-		...(info.ultra ? ["", `  ${theme.bold(theme.fg("accent", "⚡ ULTRACODE actif"))}${theme.fg("muted", " · le Lycée est en session, les disciples attendent (Alt+U pour lever la séance)")}`] : []),
+		...(info.ultra ? ["", `  ${theme.bold(theme.fg("accent", "Ω ULTRACODE actif"))}${theme.fg("muted", " · le Lycée est en session, les disciples attendent (Alt+U pour lever la séance)")}`] : []),
 		"",
 		...commandLines(width, theme),
 		"",
@@ -116,10 +117,10 @@ const HINTS = ["Échap interrompre", "Ctrl+L modèle", "Maj+Tab réflexion", "Ct
 
 function commandLines(width: number, theme: Theme): string[] {
 	const rows: [string, string, string][] = [
-		["⚡", "/ultracode", "le Lycée entre en session : une équipe de disciples en parallèle (Alt+U)"],
+		["Ω", "/ultracode", "le Lycée entre en session : une équipe de disciples en parallèle (Alt+U)"],
 		...Object.values(ROLES).map((r) => [r.icon, `/${r.command} …`, `${r.label} ${r.summary}`] as [string, string, string]),
-		["↻", "/maj", "met à jour l'extension Aristote"],
-		["◆", "/aristote", "état des modèles, clé API (key sk-…)"],
+		["Δ", "/maj", "met à jour l'extension Aristote"],
+		["Α", "/aristote", "état des modèles, clé API (key sk-…)"],
 	];
 	const col = Math.max(...rows.map(([, c]) => c.length)) + 2;
 	return [
@@ -193,7 +194,7 @@ export function installUi(pi: ExtensionAPI, getInfo: () => HeaderInfo) {
 				}),
 				intervalMs: 110,
 			});
-			ctx.ui.setStatus("aristote-brand", gold("◆ Aristote", t));
+			ctx.ui.setStatus("aristote-brand", gold("Α Aristote", t));
 			ctx.ui.setTitle(`Aristote · ${basename(ctx.cwd)}`);
 		} else {
 			ctx.ui.setHeader(undefined);
@@ -220,7 +221,7 @@ export function installUi(pi: ExtensionAPI, getInfo: () => HeaderInfo) {
 				? `Tel Sisyphe, le modèle poussait le même rocher : boucle coupée${d.snippet ? ` (« ${String(d.snippet).slice(0, 50)}… »)` : ""}`
 				: "Beaucoup de logos, aucune praxis : action annoncée mais pas exécutée";
 		const lines = [
-			`${gold("◆", theme)} ${theme.bold(theme.fg("accent", "Garde-fou Aristote"))}${theme.fg("dim", ` · relance ${d.attempt ?? "?"}/${d.max ?? "?"}`)}`,
+			`${gold("Φ", theme)} ${theme.bold(theme.fg("accent", "Garde-fou Aristote"))}${theme.fg("dim", ` · relance ${d.attempt ?? "?"}/${d.max ?? "?"}`)}`,
 			`  ${theme.fg("warning", title)}${theme.fg("muted", " — on le remet sur le droit chemin.")}`,
 			...(options.expanded ? ["", ...String(message.content).split("\n").map((l) => `  ${theme.fg("dim", l)}`)] : []),
 		];
@@ -258,7 +259,7 @@ function panel(d: PanelData, width: number, theme: Theme): string[] {
 		const t = truncateToWidth(s, inner);
 		return `${b("│")} ${t}${" ".repeat(Math.max(0, inner - visibleWidth(t)))} ${b("│")}`;
 	};
-	const title = ` ${gold("◆", theme)} ${theme.bold(gradient("ARISTOTE", theme))} `;
+	const title = ` ${gold("Α", theme)} ${theme.bold(gradient("ARISTOTE", theme))} ${theme.fg("dim", "ΑΡΙΣΤΟΤΕΛΗΣ")} `;
 	const top = `${b("╭─")}${title}${b("─".repeat(Math.max(0, width - 3 - visibleWidth(title))))}${b("╮")}`;
 	const idWidth = Math.max(...d.models.map((m) => m.id.length), 10) + 2;
 	const order = (m: PanelData["models"][number]) => (m.ok === false ? 1 : 0);

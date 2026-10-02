@@ -16,7 +16,7 @@ if [ -t 1 ]; then
 else
 	J=""; O=""; S=""; G=""; R=""; D=""; B=""; Z=""
 fi
-say() { printf '%s◆%s %s\n' "$J" "$Z" "$1"; }
+say() { printf '%sΑ%s %s\n' "$J" "$Z" "$1"; }
 ok() { printf '%s✓%s %s\n' "$G" "$Z" "$1"; }
 die() { printf '%s✗ %s%s\n' "$R" "$1" "$Z" >&2; exit 1; }
 has_tty() { [ -z "$AUTO" ] && (exec </dev/tty) 2>/dev/null; }
@@ -172,7 +172,7 @@ fs.writeFileSync(p, JSON.stringify(a, null, 2) + "\n", { mode: 0o600 }); fs.chmo
 fi
 
 REPLY=n
-ask "$(printf '\n%s◆%s Utiliser Aristote par défaut quand tu lances pi ? [O/n] ' "$J" "$Z")"
+ask "$(printf '\n%sΑ%s Utiliser Aristote par défaut quand tu lances pi ? [O/n] ' "$J" "$Z")"
 case "$REPLY" in
 	n | N | non | Non) ;;
 	*)
@@ -190,7 +190,7 @@ printf '  %sAlt+U : mode Ultracode · /peripateticien, /euclide, /hephaistos, /s
 [ -z "$PATH_CHANGED" ] || printf '  %sOuvre un nouveau terminal pour que la commande pi soit trouvée.%s\n' "$O" "$Z"
 
 REPLY=n
-ask "$(printf '\n%s◆%s Lancer pi maintenant ? [O/n] ' "$J" "$Z")"
+ask "$(printf '\n%sΑ%s Lancer pi maintenant ? [O/n] ' "$J" "$Z")"
 case "$REPLY" in
 	n | N | non | Non) ;;
 	*) if has_tty; then exec pi </dev/tty; fi ;;

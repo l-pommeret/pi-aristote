@@ -126,7 +126,7 @@ export default async function (pi: ExtensionAPI) {
 
 	hooks.onEmptyRetry = (attempt, max) => {
 		if (process.env.ARISTOTE_DEBUG) console.error(`[aristote] réponse vide, relance ${attempt}/${max}`);
-		lastCtx?.ui.setStatus("aristote", `↻ L'oracle est resté muet, on repose la question (${attempt}/${max})`);
+		lastCtx?.ui.setStatus("aristote", `ρ L'oracle est resté muet, on repose la question (${attempt}/${max})`);
 	};
 	hooks.onRecovered = () => lastCtx?.ui.setStatus("aristote", undefined);
 

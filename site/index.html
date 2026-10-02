@@ -50,6 +50,8 @@ header { padding: 56px 0 24px; }
 	color: transparent;
 	overflow: hidden;
 }
+.grec { font: 600 15px "JetBrains Mono", monospace; letter-spacing: .3em; color: var(--jaune); margin: -12px 0 22px; }
+.grec span { color: var(--doux); letter-spacing: .05em; font-weight: 400; }
 h1 { font-size: clamp(28px, 4.4vw, 46px); line-height: 1.1; margin: 0 0 14px; letter-spacing: -.02em; font-weight: 800; }
 h1 em { font-style: normal; color: var(--jaune); }
 .lede { font-size: clamp(16px, 2vw, 19px); color: var(--doux); max-width: 680px; margin: 0; }
@@ -88,7 +90,7 @@ h1 em { font-style: normal; color: var(--jaune); }
 }
 .cle .num {
 	display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
-	font-weight: 800; color: var(--marine); background: var(--sarcelle-clair);
+	font: 800 20px "JetBrains Mono", monospace; color: var(--marine); background: var(--sarcelle-clair);
 }
 .cle b { display: block; font-size: 17px; margin-bottom: 2px; }
 .cle p { margin: 0; color: var(--doux); font-size: 15px; }
@@ -121,7 +123,7 @@ h2 small { display: block; font-size: 15px; font-weight: 400; color: var(--doux)
 	position: relative;
 }
 .step::before {
-	counter-increment: s; content: counter(s);
+	counter-increment: s; content: counter(s, lower-greek);
 	display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
 	font-weight: 700; font-size: 14px; color: var(--marine); background: var(--sarcelle-clair); margin-bottom: 10px;
 }
@@ -181,11 +183,12 @@ footer a { color: var(--sarcelle-clair); }
 ██╔══██║██╔══██╗██║╚════██║   ██║   ██║   ██║   ██║   ██╔══╝
 ██║  ██║██║  ██║██║███████║   ██║   ╚██████╔╝   ██║   ███████╗
 ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝   ╚═╝    ╚═════╝    ╚═╝   ╚══════╝</pre>
+		<p class="grec">Α Ρ Ι Σ Τ Ο Τ Ε Λ Η Σ <span>· ὁ φιλόσοφος</span></p>
 		<h1>Un agent de code dans ton terminal,<br><em>propulsé par Aristote.</em></h1>
 		<p class="lede">pi, l'agent de code open source, réglé aux petits oignons pour les modèles souverains d'Aristote : les nouveaux modèles apparaissent tout seuls, les réponses vides sont relancées, les boucles coupées, et le mode Ultracode fait travailler toute une équipe en parallèle.</p>
 
 		<div class="cle">
-			<div class="num">1</div>
+			<div class="num">α</div>
 			<div>
 				<b>Récupère ta clé API Aristote</b>
 				<ol>
@@ -198,7 +201,7 @@ footer a { color: var(--sarcelle-clair); }
 			<a class="btn-cle" href="https://aristote.education/llm-access/" target="_blank" rel="noopener">Obtenir ma clé ↗</a>
 		</div>
 
-		<p class="etape">2 · Installe en une commande</p>
+		<p class="etape">β · Installe en une commande</p>
 		<div class="install">
 			<div class="cmd">
 				<code id="cmd"><span class="p">$ </span>curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh</code>
@@ -220,10 +223,10 @@ footer a { color: var(--sarcelle-clair); }
 	<section>
 		<h2>Pourquoi cette version <small>Tout ce qui manquait pour travailler confortablement avec Aristote.</small></h2>
 		<div class="grid">
-			<div class="card"><h3><span class="ico">↻</span>Plus jamais « continue »</h3><p>La passerelle d'Aristote renvoie parfois une réponse vide. L'extension relance la requête toute seule, sans que tu le voies.</p></div>
-			<div class="card"><h3><span class="ico">◇</span>Modèles toujours à jour</h3><p>La liste vient d'Aristote à chaque lancement. Les nouveaux modèles sont mesurés automatiquement, les modèles en panne masqués.</p></div>
-			<div class="card"><h3><span class="ico">σ</span>Garde-fou anti-boucle</h3><p>Le modèle annonce une action sans la faire, ou se répète ? Il est coupé et remis sur le droit chemin.</p></div>
-			<div class="card"><h3><span class="ico">⌁</span>Contexte maîtrisé</h3><p>La taille des réponses s'adapte à la place restante : fini les erreurs 500 incompréhensibles en fin de session.</p></div>
+			<div class="card"><h3><span class="ico">ρ</span>Plus jamais « continue »</h3><p>La passerelle d'Aristote renvoie parfois une réponse vide. L'extension relance la requête toute seule, sans que tu le voies.</p></div>
+			<div class="card"><h3><span class="ico">μ</span>Modèles toujours à jour</h3><p>La liste vient d'Aristote à chaque lancement. Les nouveaux modèles sont mesurés automatiquement, les modèles en panne masqués.</p></div>
+			<div class="card"><h3><span class="ico">Φ</span>Garde-fou anti-boucle</h3><p>Le modèle annonce une action sans la faire, ou se répète ? Il est coupé et remis sur le droit chemin.</p></div>
+			<div class="card"><h3><span class="ico">κ</span>Contexte maîtrisé</h3><p>La taille des réponses s'adapte à la place restante : fini les erreurs 500 incompréhensibles en fin de session.</p></div>
 		</div>
 	</section>
 
@@ -239,7 +242,7 @@ footer a { color: var(--sarcelle-clair); }
 	</section>
 
 	<section>
-		<h2>⚡ Mode Ultracode <small><kbd style="font:12px 'JetBrains Mono';background:#1c1e4a;border:1px solid #262966;border-radius:5px;padding:1px 6px">Alt U</kbd>, <code>/ultracode</code>, ou le mot « ultracode » dans ta demande : le Lycée entre en session.</small></h2>
+		<h2>Ω Mode Ultracode <small><kbd style="font:12px 'JetBrains Mono';background:#1c1e4a;border:1px solid #262966;border-radius:5px;padding:1px 6px">Alt U</kbd>, <code>/ultracode</code>, ou le mot « ultracode » dans ta demande : le Lycée entre en session.</small></h2>
 		<div class="lycee">
 			<div class="disciple"><div class="g">π</div><b>Péripatéticien</b><code>/peripateticien</code><p>Explore le code en se promenant, sans rien toucher.</p></div>
 			<div class="disciple"><div class="g">ε</div><b>Euclide</b><code>/euclide</code><p>Trace le plan d'implémentation.</p></div>
@@ -248,7 +251,7 @@ footer a { color: var(--sarcelle-clair); }
 			<div class="disciple"><div class="g">λ</div><b>Sappho</b><code>/sappho</code><p>Écrit la doc, les README et les messages de commit.</p></div>
 		</div>
 		<p class="hint">Chaque disciple est un vrai processus pi, avec son propre contexte. Ils travaillent en parallèle, puis le modèle principal fait la synthèse.</p>
-<div class="term"><span class="j">▌▌▌</span> Ultracode <span class="d">· 4 disciples du Lycée partent en promenade</span>
+<div class="term"><span class="j">Ω</span> Ultracode <span class="d">· 4 disciples du Lycée partent en promenade</span>
 <span class="v">✓</span> <span class="d">1.</span> <span class="s">π Péripatéticien</span>  Explore src/api et résume les routes
     <span class="d">qwen-3.8-27b · 7s · 2 tours · 3 outils</span>  ## Routes de l'API…
 <span class="j">⠙</span> <span class="d">2.</span> <span class="s">π Péripatéticien</span>  Explore les tests et la CI
