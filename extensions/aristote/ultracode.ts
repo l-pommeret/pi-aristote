@@ -6,7 +6,7 @@ import { Container, Markdown, Spacer, Text, truncateToWidth, visibleWidth } from
 import { Type } from "typebox";
 import { PROVIDER } from "./config.ts";
 import { normalizeRole, type Role, ROLES } from "./lycee.ts";
-import { bandes, LISN, rgb, TRUECOLOR } from "./ui.ts";
+import { LISN, rgb, TRUECOLOR } from "./ui.ts";
 
 const TOOL = "agents";
 const MAX_TASKS = 8;
@@ -25,7 +25,8 @@ Pour toute tâche non triviale :
 4. Termine par un relecteur (« Socrate ») qui vérifie (tests, relecture), puis corrige si besoin.
    Si la documentation doit suivre, confie-la à une rédactrice (« Sappho »).
 5. Fais une synthèse claire en français pour l'utilisateur.
-Les sous-agents ne voient PAS cette conversation : chaque mission doit être autonome (chemins, contexte utile, contraintes, critère de fin).`;
+Les sous-agents ne voient PAS cette conversation : chaque mission doit être autonome (chemins, contexte utile, contraintes, critère de fin).
+Rédige des missions courtes (1 à 3 phrases) qui commencent par le fichier ou le dossier visé, par exemple « calc.py : corrige add et vérifie avec test_calc.py ».`;
 
 const Params = Type.Object({
 	tasks: Type.Array(
@@ -73,22 +74,29 @@ function piInvocation(args: string[]): { command: string; args: string[] } {
 	return { command: "pi", args };
 }
 
-function describeAction(name: string, args: any): string {
+function describeAction(name: string, args: any, cwd: string): string {
 	const a = args ?? {};
-	switch (name) {
-		case "bash":
-			return `$ ${String(a.command ?? "").split("\n")[0]}`;
-		case "read":
-			return `lecture ${a.path ?? ""}`;
-		case "edit":
-			return `édition ${a.path ?? ""}`;
-		case "write":
-			return `écriture ${a.path ?? ""}`;
-		case "grep":
-			return `recherche « ${a.pattern ?? ""} »`;
-		default:
-			return `${name} ${JSON.stringify(a).slice(0, 60)}`;
-	}
+	const s = (() => {
+		switch (name) {
+			case "bash":
+				return `$ ${String(a.command ?? "").split("\n")[0].replace(/^cd\s+\S+\s*&&\s*/, "")}`;
+			case "read":
+				return `lit ${a.path ?? ""}`;
+			case "edit":
+				return `retouche ${a.path ?? ""}`;
+			case "write":
+				return `écrit ${a.path ?? ""}`;
+			case "grep":
+				return `cherche « ${a.pattern ?? ""} »${a.path ? ` dans ${a.path}` : ""}`;
+			case "find":
+				return `cherche ${a.pattern ?? ""}${a.path && a.path !== "." ? ` dans ${a.path}` : ""}`;
+			case "ls":
+				return `parcourt ${a.path ?? "."}`;
+			default:
+				return `${name} ${JSON.stringify(a).slice(0, 60)}`;
+		}
+	})();
+	return s.split(`${cwd}/`).join("").split(cwd).join(".");
 }
 
 function runAgent(run: AgentRun, cwd: string, thinking: string | undefined, signal: AbortSignal | undefined, update: () => void): Promise<void> {
@@ -119,7 +127,7 @@ function runAgent(run: AgentRun, cwd: string, thinking: string | undefined, sign
 			}
 			if (ev.type === "tool_execution_start") {
 				run.tools++;
-				run.action = describeAction(ev.toolName, ev.args);
+				run.action = describeAction(ev.toolName, ev.args, cwd);
 				update();
 			} else if (ev.type === "message_end" && ev.message?.role === "assistant") {
 				const m = ev.message;
@@ -171,18 +179,98 @@ async function pool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>
 	);
 }
 
-const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const elapsed = (r: AgentRun) =>
-	r.startedAt ? `${Math.round(((r.endedAt ?? Date.now()) - r.startedAt) / 1000)}s` : "";
+const SPIN = ["◐", "◓", "◑", "◒"];
+const WARM = [255, 244, 214];
+const lerp = (a: number[], b: number[], u: number) => a.map((x, i) => Math.round(x + (b[i] - x) * Math.max(0, Math.min(1, u))));
+const ramp = (t: number) => (t < 0.5 ? lerp(LISN.sarcelle, LISN.orange, t * 2) : lerp(LISN.orange, LISN.jaune, (t - 0.5) * 2));
+const hash = (x: number, y: number, k: number) => {
+	const s = Math.sin(x * 12.9898 + y * 78.233 + k * 37.719) * 43758.5453;
+	return s - Math.floor(s);
+};
+const paint = (c: number[], s: string, theme: Theme, fallback: "accent" | "muted" | "dim" = "accent") =>
+	TRUECOLOR ? rgb(c, s) : theme.fg(fallback, s);
+
+const ROLE_COLOR: Record<Role, number[]> = {
+	eclaireur: LISN.sarcelle,
+	architecte: LISN.jaune,
+	ouvrier: LISN.orange,
+	relecteur: LISN.jaune,
+	redacteur: LISN.orange,
+};
+
+const secs = (ms: number) => {
+	const s = Math.max(0, Math.round(ms / 1000));
+	return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}`;
+};
+const elapsed = (r: AgentRun) => (r.startedAt ? secs((r.endedAt ?? Date.now()) - r.startedAt) : "");
 const plural = (n: number, w: string) => (n ? `${n} ${w}${n > 1 ? "s" : ""}` : "");
 const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`);
+const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+const brief = (task: string) => {
+	const t = oneLine(task)
+		.replace(/\b(?:le projet|le code|le dépôt|tout) (?:est|se trouve) dans \.{1,2}\/?\s*[.,:;]?\s*/gi, "")
+		.replace(/\s*\(?(?:dans|depuis|à partir de) (?:le (?:répertoire|dossier|projet)|ce répertoire)(?: courant)? \.?\/?\)?(?=[\s,.;:])[,;]?/gi, "")
+		.replace(/\s(?:dans|depuis) \.\/?(?=[\s,;:])/g, "")
+		.replace(/\bcd \.\/? &&\s*/g, "")
+		.replace(/^[\s,.;:]+/, "");
+	return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+function subject(task: string): string {
+	const files = [...new Set(task.match(/[\w./-]*\w\.[a-zA-Z]{1,6}\b/g) ?? [])].filter((f) => !/^\d+\.\d+$/.test(f));
+	if (!files.length) return "";
+	return files.length > 2 ? `${files.slice(0, 2).join(", ")} +${files.length - 2}` : files.join(", ");
+}
+
+function gist(output: string): string {
+	const clean = (l: string) =>
+		l
+			.replace(/^#+\s*|^>\s*|^[-*+]\s+|^\d+[.)]\s+/, "")
+			.replace(/\*\*|__|`/g, "")
+			.trim();
+	const items: string[] = [];
+	let code = false;
+	for (const raw of output.split("\n")) {
+		if (/^\s*```/.test(raw)) {
+			code = !code;
+			items.push("");
+			continue;
+		}
+		const l = clean(raw);
+		if (code || l.length < 3 || /^(-{3,}|\|.*\|)$/.test(l) || /^[\w./-]+\.\w{1,6}\s*:?$/.test(l)) continue;
+		if (/^(compte[- ]rendu|résumé|rapport|synthèse|verdict|résultat|conclusion|analyse|description|proposition)(?=[\s:]|$)[^:]*:?$/i.test(l)) continue;
+		items.push(l);
+	}
+	const i = items.findIndex(Boolean);
+	if (i < 0) return "";
+	const line = items[i].endsWith(":") && items[i + 1] ? `${items[i]} ${items[i + 1]}` : items[i].replace(/\s*:$/, "");
+	return line.split(`${process.cwd()}/`).join("");
+}
+
+function clip(s: string, width: number): string {
+	if (visibleWidth(s) <= width) return s;
+	let out = "";
+	let w = 0;
+	for (const m of s.matchAll(/\x1b\[[0-9;]*m|\P{M}\p{M}*/gu)) {
+		const t = m[0];
+		if (t.startsWith("\x1b")) {
+			out += t;
+			continue;
+		}
+		const cw = visibleWidth(t);
+		if (w + cw > width - 1) break;
+		out += t;
+		w += cw;
+	}
+	return `${out}…\x1b[39m\x1b[22m`;
+}
 
 function statusIcon(r: AgentRun, theme: Theme): string {
 	switch (r.status) {
 		case "attente":
 			return theme.fg("dim", "○");
 		case "en cours":
-			return theme.fg("accent", SPIN[Math.floor(Date.now() / 100) % SPIN.length]);
+			return paint(LISN.jaune, SPIN[Math.floor(Date.now() / 160) % SPIN.length], theme);
 		case "terminé":
 			return theme.fg("success", "✓");
 		case "annulé":
@@ -192,30 +280,89 @@ function statusIcon(r: AgentRun, theme: Theme): string {
 	}
 }
 
+function fit(left: string, right: string, width: number): string {
+	const room = width - visibleWidth(right) - 2;
+	if (!right || room < 24) return clip(left, width);
+	const l = clip(left, room);
+	return l + " ".repeat(Math.max(2, width - visibleWidth(l) - visibleWidth(right))) + right;
+}
+
 function agentLines(runs: AgentRun[], theme: Theme, width: number): string[] {
 	const out: string[] = [];
-	runs.forEach((r, i) => {
+	const labelW = Math.max(...runs.map((r) => visibleWidth(ROLES[r.role].label)));
+	const timeW = Math.max(3, ...runs.map((r) => elapsed(r).length));
+	const models = new Set(runs.map((r) => r.model));
+	runs.forEach((r) => {
 		const role = ROLES[r.role];
-		const meta = [r.model, elapsed(r), plural(r.turns, "tour"), plural(r.tools, "outil"), r.tokens ? `${fmtTok(r.tokens)} tok` : ""]
+		const name = theme.bold(paint(ROLE_COLOR[r.role], `${role.icon} ${role.label.padEnd(labelW)}`, theme));
+		const time = elapsed(r).padStart(timeW);
+		const subj = subject(r.task);
+		const task = brief(r.task);
+		const what = subj ? `${theme.fg("text", subj)} ${theme.fg("dim", `· ${task}`)}` : theme.fg("text", task);
+		out.push(clip(` ${statusIcon(r, theme)} ${name}  ${theme.fg("muted", time)}  ${what}`, width));
+
+		const detail =
+			r.status === "échec" || (r.error && !r.output)
+				? theme.fg("error", oneLine(r.error ?? "échec"))
+				: r.status === "en cours"
+					? theme.fg("muted", r.action ?? "médite sous le portique…")
+					: r.status === "terminé"
+						? theme.fg("text", gist(r.output) || "(rien à dire, ce qui est déjà une réponse)")
+						: r.status === "annulé"
+							? theme.fg("warning", "rappelé avant la fin de sa promenade")
+							: theme.fg("dim", "attend une place sous le portique");
+		const meta = [width >= 100 ? plural(r.turns, "tour") : "", plural(r.tools, "outil"), r.tokens ? `${fmtTok(r.tokens)} tok` : "", models.size > 1 && width >= 100 ? r.model : ""]
 			.filter(Boolean)
 			.join(" · ");
-		out.push(
-			truncateToWidth(
-				`${statusIcon(r, theme)} ${theme.fg("dim", `${i + 1}.`)} ${theme.bold(theme.fg("accent", `${role.icon} ${role.label}`))}  ${theme.fg("text", r.task.replace(/\s+/g, " "))}`,
-				width,
-			),
-		);
-		const detail =
-			r.status === "échec" || r.error
-				? theme.fg("error", r.error ?? "échec")
-				: r.status === "en cours"
-					? theme.fg("muted", `→ ${r.action ?? "médite sous le portique…"}`)
-					: r.status === "terminé"
-						? theme.fg("muted", r.output.split("\n").find((l) => l.trim()) ?? "")
-						: "";
-		out.push(truncateToWidth(`    ${theme.fg("dim", meta)}${detail ? `  ${detail}` : ""}`, width));
+		const arrow = r.status === "en cours" ? paint(LISN.orange, "↳", theme) : theme.fg("dim", "╰");
+		out.push(fit(`   ${arrow} ${detail}`, width >= 70 ? theme.fg("dim", meta) : "", width));
 	});
 	return out;
+}
+
+function teamTotals(runs: AgentRun[]) {
+	const starts = runs.filter((r) => r.startedAt).map((r) => r.startedAt!);
+	const ends = runs.map((r) => r.endedAt ?? Date.now());
+	return {
+		done: runs.filter((r) => r.status === "terminé").length,
+		failed: runs.filter((r) => r.status === "échec").length,
+		cancelled: runs.filter((r) => r.status === "annulé").length,
+		finished: runs.every((r) => r.endedAt || r.status === "annulé"),
+		time: starts.length ? secs(Math.max(...ends) - Math.min(...starts)) : "0s",
+		tools: runs.reduce((n, r) => n + r.tools, 0),
+		tokens: runs.reduce((n, r) => n + r.tokens, 0),
+	};
+}
+
+function progressBar(runs: AgentRun[], theme: Theme): string {
+	const pulse = Math.floor(Date.now() / 300) % 2 === 0;
+	return runs
+		.map((r) => {
+			if (r.status === "terminé") return paint(ROLE_COLOR[r.role], "━━", theme);
+			if (r.status === "en cours") return paint(pulse ? LISN.jaune : LISN.orange, "━━", theme, "muted");
+			if (r.status === "attente") return theme.fg("dim", "──");
+			return theme.fg(r.status === "annulé" ? "warning" : "error", "━━");
+		})
+		.join(" ");
+}
+
+function teamFooter(runs: AgentRun[], theme: Theme, width: number): string[] {
+	const t = teamTotals(runs);
+	const stats = [plural(t.tools, "outil"), t.tokens ? `${fmtTok(t.tokens)} tok` : ""].filter(Boolean).join(" · ");
+	if (!t.finished) {
+		const back = `${runs.filter((r) => r.endedAt).length}/${runs.length} revenus`;
+		return [clip(` ${progressBar(runs, theme)}  ${theme.fg("text", back)} ${theme.fg("muted", `· ${t.time}${stats ? ` · ${stats}` : ""}`)}${width >= 90 ? `  ${theme.fg("dim", "Échap : rappeler le Lycée")}` : ""}`, width)];
+	}
+	const omega = paint(LISN.jaune, "Ω", theme);
+	const verdict =
+		t.cancelled === runs.length
+			? `Séance levée : ${runs.length > 1 ? `les ${runs.length} disciples rentrent` : "le disciple rentre"} avant la fin de la promenade`
+			: t.failed || t.cancelled
+				? `${t.done}/${runs.length} revenus de promenade${t.failed ? ` · ${t.failed} égaré${t.failed > 1 ? "s" : ""} en chemin` : ""}${t.cancelled ? ` · ${t.cancelled} rappelé${t.cancelled > 1 ? "s" : ""}` : ""}`
+				: `${runs.length === 1 ? "Le disciple est revenu" : `Les ${runs.length} disciples sont revenus`} de promenade`;
+	const line = ` ${omega} ${theme.bold(theme.fg(t.failed ? "warning" : "text", verdict))} ${theme.fg("muted", `en ${t.time}${stats ? ` · ${stats}` : ""}`)}`;
+	const hint = runs.some((r) => r.output) ? [clip(theme.fg("dim", "   Ctrl+O : lire les comptes rendus"), width)] : [];
+	return [clip(line, width), ...hint];
 }
 
 class LiveBlock {
@@ -249,62 +396,90 @@ const SMALL: Record<string, string[]> = {
 	E: ["╔═╗", "║╣ ", "╚═╝"],
 };
 const word = (font: Record<string, string[]>) => font.U.map((_, row) => [..."ULTRACODE"].map((c) => font[c][row]).join(""));
-const SPARKS = ["α", "β", "γ", "δ", "λ", "μ", "π", "σ", "φ", "ψ", "Ω", "·"];
+const SPARKS = ["α", "β", "γ", "δ", "λ", "μ", "π", "σ", "φ", "ψ", "Ω", "·", "·", "·"];
+const FLASH_ON = 30;
+const FLASH_OFF = 18;
 
-function flashFrame(frame: number, total: number, width: number, theme: Theme, on: boolean): string[] {
+function sparkRow(y: number, frame: number, p: number, width: number, gap: [number, number] | undefined, theme: Theme): string[] {
+	const cells = Array<string>(width).fill(" ");
+	if (p > 0.8) return cells;
+	const k = Math.floor(frame / 3);
+	for (let x = 1; x < width - 1; x++) {
+		if (gap && x >= gap[0] - 2 && x < gap[1] + 2) continue;
+		const h = hash(x, y, k);
+		if (h > 0.035 * (1 - p)) continue;
+		const age = (frame % 3) / 3 + p;
+		const c = age < 0.5 ? LISN.jaune : age < 0.9 ? LISN.orange : LISN.sarcelle;
+		cells[x] = paint(c, SPARKS[Math.floor(hash(y, x, k) * SPARKS.length)], theme);
+	}
+	return cells;
+}
+
+function flashFrame(frame: number, width: number, theme: Theme, on: boolean): string[] {
+	const total = on ? FLASH_ON : FLASH_OFF;
+	const p = Math.min(1, frame / total);
 	const art = width >= 80 ? word(BIG) : width >= 32 ? word(SMALL) : ["Ω ULTRACODE"];
 	const w = [...art[0]].length;
-	const pad = " ".repeat(Math.max(0, Math.floor((width - w) / 2)));
-	const reveal = Math.min(1, frame / (total * 0.5));
-	const flash = frame >= Math.floor(total * 0.55) && frame < Math.floor(total * 0.65);
-	const settled = frame >= Math.floor(total * 0.65);
+	const left = Math.max(0, Math.floor((width - w) / 2));
 
-	const paint = (line: string) =>
-		[...line]
-			.map((ch, x) => {
-				if (ch === " ") return ch;
-				if (x / w > reveal) return " ";
-				if (!on) return theme.fg("dim", ch);
-				if (!TRUECOLOR) return theme.fg("accent", ch);
-				if (flash) return `\x1b[1m${rgb([255, 255, 255], ch)}\x1b[22m`;
-				const shift = settled ? 0 : frame * 0.07;
-				return rgb(bandes((x / w + shift) % 1), ch);
-			})
-			.join("");
+	const cell = (ch: string, x: number, y: number): string => {
+		if (ch === " ") return ch;
+		const u = x / w;
+		if (!on) {
+			const front = 1.1 - p * 1.35 + hash(y, 0, 5) * 0.04;
+			if (u > front + 0.1) return " ";
+			if (u > front) return hash(x, y, frame) < 0.5 ? paint(lerp(LISN.orange, [70, 72, 90], (u - front) * 10), SPARKS[Math.floor(hash(y, x, 3) * 10)], theme, "dim") : " ";
+			return TRUECOLOR ? rgb(lerp(ramp(u), [70, 72, 90], 0.35 + p), ch) : theme.fg("dim", ch);
+		}
+		const front = (p / 0.38) * 1.2 - 0.1 - y * 0.012;
+		if (u > front) return " ";
+		if (!TRUECOLOR) return theme.fg("accent", ch);
+		if (front - u < 0.05 && p < 0.42) return `\x1b[1m${rgb(WARM, ch)}\x1b[22m`;
+		const g = ((p - 0.4) / 0.3) * 1.4 - 0.2 + y * 0.03;
+		const glint = p > 0.4 && p < 0.72 ? Math.max(0, 1 - Math.abs(u - g) / 0.07) : 0;
+		return rgb(lerp(ramp(u), WARM, glint * 0.85), ch);
+	};
 
-	const sparkle = () =>
-		[...Array(Math.max(0, width - 2))]
-			.map(() => (on && !settled && Math.random() < 0.06 ? theme.fg("accent", SPARKS[Math.floor(Math.random() * SPARKS.length)]) : " "))
-			.join("");
+	const rows = art.map((line, y) => {
+		const cells = sparkRow(y + 1, frame, on ? p : 1, width, [left, left + w], theme);
+		[...line].forEach((ch, x) => {
+			if (left + x < width) cells[left + x] = cell(ch, x, y);
+		});
+		return cells.join("").replace(/\s+$/, "");
+	});
 
-	const subtitle = on
-		? `Ω ULTRACODE · Le Lycée entre en session · « Le tout est plus que la somme de ses parties » Ω`
-		: `Fin de la séance · les péripatéticiens rentrent de promenade`;
-	const sub = settled ? (on ? theme.bold(theme.fg("accent", subtitle)) : theme.fg("muted", subtitle)) : "";
-	const subPad = " ".repeat(Math.max(0, Math.floor((width - visibleWidth(subtitle)) / 2)));
+	const long = on ? "Ω  Le Lycée entre en session · les disciples lacent leurs sandales  Ω" : "Fin de la séance · les péripatéticiens rentrent de promenade";
+	const short = on ? "Ω  Le Lycée entre en session  Ω" : "Fin de la séance";
+	const subtitle = visibleWidth(long) <= width - 2 ? long : short;
+	const shown = on ? Math.floor(Math.max(0, Math.min(1, (p - 0.38) / 0.22)) * [...subtitle].length) : [...subtitle].length;
+	const text = [...subtitle].slice(0, shown).join("");
+	const sub =
+		" ".repeat(Math.max(0, Math.floor((width - visibleWidth(subtitle)) / 2))) +
+		(on ? theme.bold(paint(LISN.jaune, text, theme)) : theme.fg("muted", text));
 
-	return [sparkle(), ...art.map((l) => pad + paint(l)), sparkle(), subPad + sub].map((l) => truncateToWidth(l, width));
+	const top = on ? sparkRow(0, frame, p, width, undefined, theme).join("").replace(/\s+$/, "") : "";
+	return [top, ...rows, sub].map((l) => truncateToWidth(l, width));
 }
 
 function playFlash(ctx: ExtensionContext, on: boolean): Promise<void> {
 	if (ctx.mode !== "tui") return Promise.resolve();
-	const total = on ? 26 : 12;
+	const total = on ? FLASH_ON : FLASH_OFF;
 	let frame = 0;
 	return new Promise((resolve) => {
 		let tui: any;
 		ctx.ui.setWidget("aristote-flash", (t: any, theme: Theme) => {
 			tui = t;
-			return { render: (width: number) => flashFrame(frame, total, width, theme, on), invalidate() {} };
+			return { render: (width: number) => flashFrame(frame, width, theme, on), invalidate() {} };
 		});
 		const timer = setInterval(() => {
 			frame++;
 			tui?.requestRender?.();
-			if (frame >= total + (on ? 10 : 4)) {
+			if (frame >= total + (on ? 6 : 5)) {
 				clearInterval(timer);
 				ctx.ui.setWidget("aristote-flash", undefined);
 				resolve();
 			}
-		}, 65);
+		}, 60);
 	});
 }
 
@@ -314,7 +489,8 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 	let previousThinking: string | undefined;
 
 	const badge = () => {
-		return `${TRUECOLOR ? rgb(LISN.jaune, "\x1b[1mΩ ULTRACODE\x1b[22m") : "Ω ULTRACODE"} · Lycée en session`;
+		const name = TRUECOLOR ? `\x1b[1m${[..."Ω ULTRACODE"].map((c, i) => rgb(ramp(0.35 + i / 16), c)).join("")}\x1b[22m` : "Ω ULTRACODE";
+		return `${name} · ${oneShot ? "le Lycée, le temps d'une question" : "Lycée en session"}`;
 	};
 
 	const setMode = async (ctx: ExtensionContext, on: boolean, opts: { quiet?: boolean } = {}) => {
@@ -396,37 +572,36 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 
 		renderCall(args: any, theme) {
 			const tasks: any[] = args?.tasks ?? [];
-			const head = `${TRUECOLOR ? rgb(LISN.jaune, "Ω") : theme.fg("accent", "Ω")} ${theme.bold(theme.fg("toolTitle", "Ultracode"))} ${theme.fg("muted", `· ${tasks.length} disciple${tasks.length > 1 ? "s" : ""} du Lycée ${tasks.length > 1 ? "partent" : "part"} en promenade`)}`;
+			const counts = new Map<Role, number>();
+			for (const t of tasks) {
+				const role = normalizeRole(t?.role);
+				if (role) counts.set(role, (counts.get(role) ?? 0) + 1);
+			}
+			const team = [...counts]
+				.map(([role, n]) => `${n}\u00a0${paint(ROLE_COLOR[role], ROLES[role].icon, theme)}\u00a0${ROLES[role].label}${n > 1 && role === "eclaireur" ? "s" : ""}`)
+				.join(theme.fg("muted", ", "));
+			const head = `${theme.bold(paint(LISN.jaune, "Ω Ultracode", theme))} ${theme.fg("muted", "· le Lycée envoie")} ${team || theme.fg("muted", "ses disciples")} ${theme.fg("muted", "en promenade")}`;
 			return new Text(head, 0, 0);
 		},
 
 		renderResult(result: any, { expanded }, theme) {
 			const runs: AgentRun[] = result.details?.runs ?? [];
-			if (!runs.length) return new Text(theme.fg("muted", "Les disciples enfilent leurs sandales…"), 0, 0);
-			const done = runs.filter((r) => r.status === "terminé").length;
-			const failed = runs.filter((r) => r.status === "échec").length;
+			if (!runs.length) return new Text(theme.fg("muted", " Les disciples lacent leurs sandales…"), 0, 0);
 			const container = new Container();
-			container.addChild(new LiveBlock((w) => agentLines(runs, theme, w)));
-			if (!expanded) {
-				if (runs.every((r) => r.endedAt))
-					container.addChild(
-						new Text(
-							theme.fg(
-								"dim",
-								failed
-									? `${done} revenu${done > 1 ? "s" : ""} de promenade · ${failed} égaré${failed > 1 ? "s" : ""} en chemin · Ctrl+O pour les comptes rendus`
-									: `« Le tout est plus que la somme de ses parties. » — Aristote · Ctrl+O pour les comptes rendus`,
-							),
-							0,
-							0,
-						),
-					);
-				return container;
-			}
+			container.addChild(new LiveBlock((w) => [...agentLines(runs, theme, w), "", ...teamFooter(runs, theme, w).slice(0, expanded ? 1 : 2)]));
+			if (!expanded) return container;
 			for (const r of runs) {
+				const role = ROLES[r.role];
 				container.addChild(new Spacer(1));
-				container.addChild(new Text(theme.bold(theme.fg("accent", `${ROLES[r.role].icon} ${ROLES[r.role].label} — ${r.task}`)), 0, 0));
-				container.addChild(new Markdown(r.output || r.error || "(aucune sortie)", 0, 0, getMarkdownTheme()));
+				container.addChild(
+					new LiveBlock((w) => {
+						const head = ` ${statusIcon(r, theme)} ${theme.bold(paint(ROLE_COLOR[r.role], `${role.icon} ${role.label}`, theme))} ${theme.fg("muted", [subject(r.task), elapsed(r)].filter(Boolean).join(" · "))} `;
+						return [clip(head + theme.fg("dim", "─".repeat(Math.max(0, w - visibleWidth(head)))), w)];
+					}),
+				);
+				container.addChild(new Text(theme.fg("dim", `Mission : ${oneLine(r.task)}`), 3, 0));
+				container.addChild(new Spacer(1));
+				container.addChild(new Markdown(r.output || r.error || "(aucune sortie)", 3, 0, getMarkdownTheme()));
 			}
 			return container;
 		},
@@ -478,8 +653,8 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 		if (!run) return new Text(String(message.content), 0, 0);
 		const container = new Container();
 		container.addChild(new LiveBlock((w) => agentLines([run], theme, w)));
-		if (expanded) container.addChild(new Markdown(run.output || run.error || "(aucune sortie)", 2, 0, getMarkdownTheme()));
-		else container.addChild(new Text(theme.fg("dim", "  Ctrl+O pour lire le compte rendu"), 0, 0));
+		if (expanded) container.addChild(new Markdown(run.output || run.error || "(aucune sortie)", 3, 0, getMarkdownTheme()));
+		else container.addChild(new Text(theme.fg("dim", `   Ctrl+O : lire le compte rendu de ${ROLES[run.role].label}`), 0, 0));
 		return container;
 	});
 

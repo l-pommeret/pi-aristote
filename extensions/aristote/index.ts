@@ -42,6 +42,7 @@ const SYSTEM_ADDENDUM = `
 
 ## Langue (IMPORTANT)
 Tout texte visible par l'utilisateur est en français, y compris les courtes phrases avant un appel d'outil et les résumés (sauf si l'utilisateur écrit dans une autre langue). Le code, les commandes et les identifiants restent tels quels.
+N'utilise pas d'emojis : ils s'affichent mal dans un terminal et cassent les alignements (préfère ✓, ✗, →, ou du texte).
 
 ## Tool use rules (important for this model)
 - To act, emit the tool call itself. Never write "I will run…" or show a command instead of calling the tool: a message without a tool call ends your turn and nothing is executed.
@@ -77,12 +78,24 @@ export default async function (pi: ExtensionAPI) {
 			cache.ids = ids;
 			cache.fetchedAt = Date.now();
 			const stale = ids.filter((id) => force || !cache.probes[id] || Date.now() - cache.probes[id].checkedAt > HEALTH_TTL_MS);
-			const results = await Promise.all(stale.map((id) => probeModel(key!, id, cache.probes[id])));
-			stale.forEach((id, i) => (cache.probes[id] = results[i]));
+			let shown = before;
+			let done = 0;
+			await Promise.all(
+				stale.map((id) =>
+					probeModel(key!, id, cache.probes[id]).then((probe) => {
+						cache.probes[id] = probe;
+						done++;
+						if (done < stale.length) lastCtx?.ui.setStatus("aristote-sync", `· vérification des modèles ${done}/${stale.length}…`);
+						const now = JSON.stringify(visibleIds(cache).map((m) => [m, specFor(m, cache.probes[m])]));
+						if (now !== shown) {
+							shown = now;
+							register();
+						}
+					}),
+				),
+			);
 			for (const id of Object.keys(cache.probes)) if (!ids.includes(id)) delete cache.probes[id];
 			saveCache(cache);
-			const after = JSON.stringify(visibleIds(cache).map((id) => [id, specFor(id, cache.probes[id])]));
-			if (after !== before) register();
 			const down = ids.filter((id) => cache.probes[id]?.ok === false);
 			const back = downBefore.filter((id) => ids.includes(id) && !down.includes(id));
 			const fallen = down.filter((id) => !downBefore.includes(id));
@@ -137,7 +150,7 @@ export default async function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_e, ctx) => {
 		lastCtx = ctx;
 		if (refreshing) {
-			ctx.ui.setStatus("aristote-sync", "Α vérification des modèles…");
+			ctx.ui.setStatus("aristote-sync", "· vérification des modèles…");
 			refreshing.finally(() => ctx.ui.setStatus("aristote-sync", undefined)).catch(() => {});
 		}
 	});
