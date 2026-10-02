@@ -5,6 +5,7 @@ import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { PROVIDER } from "./config.ts";
+import { normalizeRole, type Role, ROLES } from "./lycee.ts";
 import { bandes, LISN, rgb, TRUECOLOR } from "./ui.ts";
 
 const TOOL = "agents";
@@ -12,47 +13,6 @@ const MAX_TASKS = 8;
 const CONCURRENCY = 4;
 const OUTPUT_CAP = 8000;
 
-type Role = "eclaireur" | "architecte" | "ouvrier" | "relecteur";
-
-const ROLES: Record<Role, { label: string; icon: string; summary: string; tools: string; prompt: string }> = {
-	eclaireur: {
-		label: "Péripatéticien",
-		summary: "explore le code en se promenant, sans rien toucher",
-		icon: "π",
-		tools: "read,grep,find,ls,bash",
-		prompt:
-			"Tu es un éclaireur. Explore vite et précisément la zone indiquée, sans rien modifier. " +
-			"Rends un compte rendu dense : fichiers et lignes clés, fonctions, conventions, pièges. Pas de blabla.",
-	},
-	architecte: {
-		label: "Euclide",
-		summary: "trace le plan d'implémentation",
-		icon: "ε",
-		tools: "read,grep,find,ls",
-		prompt:
-			"Tu es un architecte. Lis ce qu'il faut puis rends un plan d'implémentation numéroté : " +
-			"fichiers à toucher, changements précis, ordre, risques, vérifications. Ne modifie rien.",
-	},
-	ouvrier: {
-		label: "Héphaïstos",
-		summary: "forge le code demandé",
-		icon: "η",
-		tools: "read,bash,edit,write,grep,find,ls",
-		prompt:
-			"Tu es un ouvrier. Réalise la mission de bout en bout, en ne touchant QUE les fichiers qu'elle concerne " +
-			"(d'autres ouvriers travaillent en parallèle). Vérifie ton travail (tests, exécution). " +
-			"Termine par un résumé : fichiers modifiés, ce qui a été fait, ce qui reste.",
-	},
-	relecteur: {
-		label: "Socrate",
-		summary: "questionne tout et lance les tests",
-		icon: "σ",
-		tools: "read,grep,find,ls,bash",
-		prompt:
-			"Tu es un relecteur exigeant. Vérifie le travail indiqué : relis le code, lance les tests ou le programme. " +
-			"Ne corrige rien toi-même. Rends la liste des problèmes concrets (fichier:ligne, gravité, correctif proposé), ou « RAS ».",
-	},
-};
 
 const ULTRA_PROMPT = `
 
@@ -63,6 +23,7 @@ Pour toute tâche non triviale :
 2. Si la tâche est complexe, un architecte (« Euclide ») pour le plan.
 3. Lance les ouvriers (« Héphaïstos ») en parallèle sur des fichiers DISJOINTS.
 4. Termine par un relecteur (« Socrate ») qui vérifie (tests, relecture), puis corrige si besoin.
+   Si la documentation doit suivre, confie-la à une rédactrice (« Sappho »).
 5. Fais une synthèse claire en français pour l'utilisateur.
 Les sous-agents ne voient PAS cette conversation : chaque mission doit être autonome (chemins, contexte utile, contraintes, critère de fin).`;
 
@@ -70,12 +31,19 @@ const Params = Type.Object({
 	tasks: Type.Array(
 		Type.Object({
 			role: Type.Union(
-				[Type.Literal("eclaireur"), Type.Literal("architecte"), Type.Literal("ouvrier"), Type.Literal("relecteur")],
+				[
+					Type.Literal("eclaireur"),
+					Type.Literal("architecte"),
+					Type.Literal("ouvrier"),
+					Type.Literal("relecteur"),
+					Type.Literal("redacteur"),
+				],
 				{
-						description:
-							"eclaireur = « Péripatéticien » (exploration, lecture seule), architecte = « Euclide » (plan), " +
-							"ouvrier = « Héphaïstos » (implémentation), relecteur = « Socrate » (vérification, tests)",
-					},
+					description:
+						"eclaireur = « Péripatéticien » (exploration, lecture seule), architecte = « Euclide » (plan), " +
+						"ouvrier = « Héphaïstos » (implémentation), relecteur = « Socrate » (vérification, tests), " +
+						"redacteur = « Sappho » (documentation, README, messages de commit)",
+				},
 			),
 			task: Type.String({ description: "Mission autonome et précise : le sous-agent ne voit pas la conversation." }),
 			model: Type.Optional(Type.String({ description: "Modèle Aristote (par défaut : le modèle courant)." })),
@@ -373,17 +341,27 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 		label: "Sous-agents",
 		description:
 			"Lance une équipe de sous-agents Aristote EN PARALLÈLE, chacun dans son propre processus et son propre contexte. " +
-			"Rôles : eclaireur (exploration, lecture seule), architecte (plan), ouvrier (implémentation, fichiers disjoints), relecteur (vérification). " +
+			"Rôles : eclaireur (exploration, lecture seule), architecte (plan), ouvrier (implémentation, fichiers disjoints), relecteur (vérification), redacteur (documentation). " +
 			"Chaque mission doit être autonome : le sous-agent ne voit pas la conversation. Renvoie le compte rendu de chaque agent.",
 		parameters: Params,
+		prepareArguments: (raw: any) => {
+			const tasks = Array.isArray(raw?.tasks) ? raw.tasks : [];
+			return {
+				...raw,
+				tasks: tasks.map((t: any) => ({ ...t, role: normalizeRole(t?.role) ?? t?.role })),
+			};
+		},
 		defaultActive: false,
 		executionMode: "parallel",
 
 		async execute(_id, params, signal, onUpdate, ctx) {
 			const models = visibleModels();
 			const fallback = ctx.model?.provider === PROVIDER ? ctx.model.id : models[0];
+			const unknown = params.tasks.filter((t) => !normalizeRole(t.role)).map((t) => t.role);
+			if (unknown.length)
+				throw new Error(`Rôle inconnu : ${unknown.join(", ")}. Rôles valides : ${Object.keys(ROLES).join(", ")}.`);
 			const runs: AgentRun[] = params.tasks.slice(0, MAX_TASKS).map((t) => ({
-				role: (ROLES[t.role as Role] ? t.role : "eclaireur") as Role,
+				role: normalizeRole(t.role)!,
 				task: t.task.split(`${ctx.cwd}/`).join("").split(ctx.cwd).join("."),
 				model: t.model && models.includes(t.model) ? t.model : fallback,
 				status: "attente",
@@ -454,9 +432,8 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 		},
 	});
 
-	const COMMANDS: Record<string, Role> = { peripateticien: "eclaireur", euclide: "architecte", hephaistos: "ouvrier", socrate: "relecteur" };
-	for (const [command, role] of Object.entries(COMMANDS)) {
-		const r = ROLES[role];
+	for (const [role, r] of Object.entries(ROLES) as [Role, (typeof ROLES)[Role]][]) {
+		const command = r.command;
 		pi.registerCommand(command, {
 			description: `${r.icon} ${r.label} : ${r.summary}`,
 			handler: async (args, ctx) => {

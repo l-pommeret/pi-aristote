@@ -106,6 +106,12 @@ h1 em { font-style: normal; color: var(--jaune); }
 	.cle .num { display: none; }
 	.btn-cle { text-align: center; }
 }
+.mesures { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.mesure { background: var(--marine-2); border: 1px solid var(--marine-3); border-radius: 14px; padding: 18px; }
+.mesure .chiffre { font: 800 34px Inter, sans-serif; letter-spacing: -.02em; line-height: 1.1; }
+.mesure .chiffre small { font-size: 16px; font-weight: 600; color: var(--doux); }
+.mesure .avant { font-size: 14px; color: #6d6f93; margin-top: 2px; }
+.mesure p { margin: 6px 0 0; color: var(--doux); font-size: 14px; }
 section { padding: 44px 0 8px; }
 h2 { font-size: 24px; margin: 0 0 18px; letter-spacing: -.01em; }
 h2 small { display: block; font-size: 15px; font-weight: 400; color: var(--doux); margin-top: 4px; }
@@ -137,6 +143,7 @@ h2 small { display: block; font-size: 15px; font-weight: 400; color: var(--doux)
 .disciple:nth-child(2) .g { color: var(--vert); }
 .disciple:nth-child(3) .g { color: var(--orange); }
 .disciple:nth-child(4) .g { color: var(--jaune); }
+.disciple:nth-child(5) .g { color: #d6a2e8; }
 .disciple b { display: block; margin: 8px 0 2px; }
 .disciple code { font: 13px "JetBrains Mono", monospace; color: var(--sarcelle-clair); }
 .disciple p { margin: 6px 0 0; color: var(--doux); font-size: 14px; }
@@ -197,7 +204,7 @@ footer a { color: var(--sarcelle-clair); }
 				<code id="cmd"><span class="p">$ </span>curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh</code>
 				<button class="copy" id="copy" type="button">Copier</button>
 			</div>
-			<p class="hint">Ouvre un terminal, colle avec <kbd>⌘ V</kbd> (ou <kbd>Ctrl ⇧ V</kbd>), appuie sur <kbd>Entrée</kbd>. C'est tout. La même commande sert aussi à mettre à jour.</p>
+			<p class="hint">Ouvre un terminal, colle avec <kbd>⌘ V</kbd> (ou <kbd>Ctrl ⇧ V</kbd>), appuie sur <kbd>Entrée</kbd>. C'est tout. Ensuite, pour mettre à jour : <code>/maj</code> dans pi.</p>
 		</div>
 	</header>
 
@@ -221,12 +228,24 @@ footer a { color: var(--sarcelle-clair); }
 	</section>
 
 	<section>
+		<h2>Mesuré, pas promis <small>48 exécutions réelles sur 4 tâches de code vérifiées automatiquement, avec Qwen 3.8 et Qwen 3.6 « reasoning ».</small></h2>
+		<div class="mesures">
+			<div class="mesure"><div class="chiffre" style="color:var(--vert)">24<small>/24</small></div><div class="avant">pi seul : 11/24</div><p>tâches réussies</p></div>
+			<div class="mesure"><div class="chiffre" style="color:var(--jaune)">0</div><div class="avant">pi seul : 18</div><p>sessions bloquées sur une réponse vide (le fameux « continue »)</p></div>
+			<div class="mesure"><div class="chiffre" style="color:var(--sarcelle-clair)">35</div><div class="avant">rattrapées en silence</div><p>réponses vides d'Aristote relancées automatiquement</p></div>
+			<div class="mesure"><div class="chiffre" style="color:var(--orange)">×3,5</div><div class="avant">4 disciples en parallèle</div><p>plus rapide en mode Ultracode qu'en série</p></div>
+		</div>
+		<p class="hint">Le banc d'essai est dans le dépôt (<code>bench/bench.py</code>) : chacun peut le relancer.</p>
+	</section>
+
+	<section>
 		<h2>⚡ Mode Ultracode <small><kbd style="font:12px 'JetBrains Mono';background:#1c1e4a;border:1px solid #262966;border-radius:5px;padding:1px 6px">Alt U</kbd>, <code>/ultracode</code>, ou le mot « ultracode » dans ta demande : le Lycée entre en session.</small></h2>
 		<div class="lycee">
 			<div class="disciple"><div class="g">π</div><b>Péripatéticien</b><code>/peripateticien</code><p>Explore le code en se promenant, sans rien toucher.</p></div>
 			<div class="disciple"><div class="g">ε</div><b>Euclide</b><code>/euclide</code><p>Trace le plan d'implémentation.</p></div>
 			<div class="disciple"><div class="g">η</div><b>Héphaïstos</b><code>/hephaistos</code><p>Forge le code demandé, sur ses fichiers à lui.</p></div>
 			<div class="disciple"><div class="g">σ</div><b>Socrate</b><code>/socrate</code><p>Questionne tout et lance les tests.</p></div>
+			<div class="disciple"><div class="g">λ</div><b>Sappho</b><code>/sappho</code><p>Écrit la doc, les README et les messages de commit.</p></div>
 		</div>
 		<p class="hint">Chaque disciple est un vrai processus pi, avec son propre contexte. Ils travaillent en parallèle, puis le modèle principal fait la synthèse.</p>
 <div class="term"><span class="j">▌▌▌</span> Ultracode <span class="d">· 4 disciples du Lycée partent en promenade</span>
@@ -243,7 +262,7 @@ footer a { color: var(--sarcelle-clair); }
 	<section>
 		<h2>Questions</h2>
 		<details><summary>Où trouver ma clé API Aristote ?</summary><p>Sur <a href="https://aristote.education/llm-access/" style="color:var(--sarcelle-clair)">aristote.education/llm-access</a>, après connexion avec ton compte universitaire (Université Paris-Saclay et universités associées). Elle commence par <code>sk-</code>. L'installateur la demande et la vérifie ; tu peux la changer plus tard dans pi avec <code>/aristote key sk-…</code>.</p><p>Inutile de noter la liste des modèles envoyée par email : l'extension la récupère toute seule. Attention, « Régénérer la clé » sur la page d'Aristote invalide l'ancienne : il faudra alors refaire <code>/aristote key</code>.</p></details>
-		<details><summary>Comment mettre à jour ?</summary><p>Dans pi, tape <code>/aristote maj</code> : pi te prévient tout seul quand une nouvelle version est disponible. Tu peux aussi relancer la commande d'installation.</p></details>
+		<details><summary>Comment mettre à jour ?</summary><p>Dans pi, tape <code>/maj</code> : l'extension se met à jour et se recharge en quelques secondes, sans quitter pi. pi te prévient tout seul au démarrage quand une nouvelle version est disponible. Relancer la commande d'installation marche aussi.</p></details>
 		<details><summary>Et sous Windows ?</summary><p>Utilise WSL (Ubuntu) et la commande ci-dessus. Une version PowerShell native viendra si le besoin se fait sentir.</p></details>
 		<details><summary>Qu'est-ce qui est installé, et où ?</summary>
 			<ul>

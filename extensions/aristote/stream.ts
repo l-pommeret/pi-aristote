@@ -15,6 +15,8 @@ const MAX_EMPTY_RETRIES = 4;
 const CONTEXT_MARGIN = 1024;
 const MIN_OUTPUT = 1024;
 
+export const deps = { streamSimple, sleep: (ms: number, signal?: AbortSignal) => sleep(ms, signal) };
+
 export const stats = { requests: 0, emptyRetries: 0, emptyFailures: 0, clamped: 0 };
 export const hooks: { onEmptyRetry?: (attempt: number, max: number) => void; onRecovered?: () => void } = {};
 
@@ -45,7 +47,7 @@ export function estimateTokens(context: Context): number {
 	return Math.ceil(chars / 3);
 }
 
-function clampMaxTokens(model: Model<Api>, context: Context, requested?: number): number {
+export function clampMaxTokens(model: Model<Api>, context: Context, requested?: number): number {
 	const wanted = requested ?? model.maxTokens;
 	const room = model.contextWindow - estimateTokens(context) - CONTEXT_MARGIN;
 	if (room >= wanted) return wanted;
@@ -60,7 +62,7 @@ const OVERFLOW_PATTERNS = [
 	/prompt is too long|too many tokens|input.*too long/i,
 ];
 
-function rewriteError(message: string): string {
+export function rewriteError(message: string): string {
 	if (message.includes("context_length_exceeded")) return message;
 	if (OVERFLOW_PATTERNS.some((re) => re.test(message))) return `context_length_exceeded (Aristote) : ${message}`;
 	if (/Unknown model|NotFoundError|404/i.test(message))
@@ -103,7 +105,7 @@ export function streamAristote(
 			let final: AssistantMessage | undefined;
 			let failure: Extract<AssistantMessageEvent, { type: "error" }> | undefined;
 
-			for await (const ev of streamSimple(inner, context, opts)) {
+			for await (const ev of deps.streamSimple(inner, context, opts)) {
 				if (ev.type === "start") {
 					if (!started) out.push(ev);
 					started = true;
@@ -133,7 +135,7 @@ export function streamAristote(
 			if (attempt < MAX_EMPTY_RETRIES) {
 				stats.emptyRetries++;
 				hooks.onEmptyRetry?.(attempt + 1, MAX_EMPTY_RETRIES);
-				await sleep(250 * 2 ** attempt, options?.signal);
+				await deps.sleep(250 * 2 ** attempt, options?.signal);
 				continue;
 			}
 

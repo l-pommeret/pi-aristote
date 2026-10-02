@@ -120,7 +120,7 @@ export default async function (pi: ExtensionAPI) {
 			.then((v) => {
 				const remote = v.trim();
 				if (/^\d+\.\d+\.\d+$/.test(remote) && newer(remote, localVersion()))
-					setTimeout(() => lastCtx?.ui.notify(`Nouvelle version de l'extension Aristote (${remote}) : tape /aristote maj`, "info"), 1500);
+					setTimeout(() => lastCtx?.ui.notify(`Nouvelle version de l'extension Aristote (${remote}) : tape /maj`, "info"), 1500);
 			})
 			.catch(() => {});
 
@@ -156,6 +156,22 @@ export default async function (pi: ExtensionAPI) {
 		}));
 	}
 
+	const update = async (ctx: any) => {
+		const before = localVersion();
+		ctx.ui.notify(`Recherche d'une mise à jour (version actuelle : ${before})…`, "info");
+		const r = await pi.exec("sh", ["-c", `curl -fsSL ${SITE}/install.sh | PI_ARISTOTE_AUTO=1 sh`]);
+		if (r.code !== 0) return ctx.ui.notify(`Échec de la mise à jour :\n${(r.stderr || r.stdout).slice(-400)}`, "error");
+		const after = localVersion();
+		if (after === before) return ctx.ui.notify(`L'extension Aristote est déjà à jour (${after}).`, "info");
+		ctx.ui.notify(`Extension Aristote mise à jour : ${before} → ${after}. Rechargement…`, "info");
+		await ctx.reload();
+	};
+
+	pi.registerCommand("maj", {
+		description: "Mettre à jour l'extension Aristote (nouveaux disciples, correctifs…)",
+		handler: async (_args, ctx) => update(ctx),
+	});
+
 	pi.registerCommand("aristote", {
 		description: "Aristote : état des modèles · refresh · maj · key <sk-…>",
 		getArgumentCompletions: (prefix: string) =>
@@ -173,14 +189,7 @@ export default async function (pi: ExtensionAPI) {
 				ctx.ui.notify("Clé enregistrée dans auth.json, vérification…", "info");
 			}
 
-			if (sub === "maj" || sub === "update") {
-				ctx.ui.notify("Mise à jour de l'extension Aristote…", "info");
-				const r = await pi.exec("sh", ["-c", `curl -fsSL ${SITE}/install.sh | PI_ARISTOTE_AUTO=1 sh`]);
-				if (r.code !== 0) return ctx.ui.notify(`Échec de la mise à jour :\n${(r.stderr || r.stdout).slice(-400)}`, "error");
-				ctx.ui.notify(`Extension Aristote à jour (${localVersion()}), rechargement…`, "info");
-				await ctx.reload();
-				return;
-			}
+			if (sub === "maj" || sub === "update") return update(ctx);
 
 			if (sub === "key" || sub === "refresh") {
 				try {

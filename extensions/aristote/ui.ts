@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { AGENT_DIR, PROVIDER } from "./config.ts";
+import { ROLES } from "./lycee.ts";
 
 export const TRUECOLOR = /truecolor|24bit/i.test(process.env.COLORTERM ?? "") || /ghostty|iTerm|WezTerm|vscode/i.test(process.env.TERM_PROGRAM ?? "");
 export const LISN = { marine: [20, 21, 56], sarcelle: [26, 140, 166], orange: [224, 122, 69], jaune: [242, 188, 60] };
@@ -55,10 +56,10 @@ const TEMPLE = [
 ];
 const TEMPLE_SMALL = [" ▄▄█▄▄ ", " █ █ █ ", "▀▀▀▀▀▀▀"];
 
-function meander(width: number, theme: Theme, france = false): string[] {
+function meander(width: number, theme: Theme, lisn = false): string[] {
 	const top = "┌─┐ ".repeat(Math.ceil(width / 4)).slice(0, width);
 	const bottom = "┘ └─".repeat(Math.ceil(width / 4)).slice(0, width);
-	if (!france || !TRUECOLOR) return [gold(top, theme), gold(bottom, theme)];
+	if (!lisn || !TRUECOLOR) return [gold(top, theme), gold(bottom, theme)];
 	const paint = (l: string) => [...l].map((ch, x) => rgb(bandes(x / width), ch)).join("");
 	return [paint(top), paint(bottom)];
 }
@@ -103,13 +104,31 @@ function headerLines(width: number, theme: Theme, ctx: ExtensionContext, info: H
 		}`,
 		...(info.ultra ? ["", `  ${theme.bold(theme.fg("accent", "⚡ ULTRACODE actif"))}${theme.fg("muted", " · le Lycée est en session, les disciples attendent (Alt+U pour lever la séance)")}`] : []),
 		"",
+		...commandLines(width, theme),
+		"",
 		...wrapHints(HINTS, width - 2).map((l) => `  ${theme.fg("dim", l)}`),
 		"",
 	];
 	return lines.map((l) => truncateToWidth(l, width));
 }
 
-const HINTS = ["Échap interrompre", "Ctrl+L modèle", "Maj+Tab réflexion", "Alt+U ultracode", "Ctrl+O sorties", "/aristote état", "Ctrl+C ×2 quitter"];
+const HINTS = ["Échap interrompre", "Ctrl+L modèle", "Maj+Tab réflexion", "Ctrl+O déplier", "Ctrl+C ×2 quitter"];
+
+function commandLines(width: number, theme: Theme): string[] {
+	const rows: [string, string, string][] = [
+		["⚡", "/ultracode", "le Lycée entre en session : une équipe de disciples en parallèle (Alt+U)"],
+		...Object.values(ROLES).map((r) => [r.icon, `/${r.command} …`, `${r.label} ${r.summary}`] as [string, string, string]),
+		["↻", "/maj", "met à jour l'extension Aristote"],
+		["◆", "/aristote", "état des modèles, clé API (key sk-…)"],
+	];
+	const col = Math.max(...rows.map(([, c]) => c.length)) + 2;
+	return [
+		`  ${theme.bold(theme.fg("accent", "Commandes"))}`,
+		...rows.map(([icon, cmd, desc]) =>
+			truncateToWidth(`  ${gold(icon, theme)} ${theme.fg("toolTitle", cmd.padEnd(col))}${theme.fg("muted", desc)}`, width),
+		),
+	];
+}
 
 function wrapHints(items: string[], width: number): string[] {
 	const lines: string[] = [];
@@ -262,7 +281,7 @@ function panel(d: PanelData, width: number, theme: Theme): string[] {
 		row(),
 		...d.stats.map((s) => row(theme.fg("muted", s))),
 		row(),
-		row(theme.fg("dim", "/aristote refresh  revérifier · /aristote maj  mettre à jour · /aristote key sk-…  changer de clé")),
+		row(theme.fg("dim", "/aristote refresh  revérifier · /maj  mettre à jour · /aristote key sk-…  changer de clé")),
 		`${b("╰")}${b("─".repeat(width - 2))}${b("╯")}`,
 	];
 }

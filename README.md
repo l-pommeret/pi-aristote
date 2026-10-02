@@ -10,7 +10,7 @@ curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | s
 
 Avant tout, récupère ta clé API sur **https://aristote.education/llm-access/** (connexion avec ton compte universitaire : Université Paris-Saclay et universités associées). Elle commence par `sk-`.
 
-La commande installe Node.js si besoin (version privée, sans sudo), pi, l'extension et le thème, puis demande ta clé API Aristote. Elle sert aussi à mettre à jour ; depuis pi, `/aristote maj` fait la même chose.
+La commande installe Node.js si besoin (version privée, sans sudo), pi, l'extension et le thème, puis demande ta clé API Aristote. Pour mettre à jour ensuite : `/maj` dans pi.
 
 ## Ce que fait l'extension
 
@@ -19,7 +19,7 @@ La commande installe Node.js si besoin (version privée, sans sudo), pi, l'exten
 - **Contexte maîtrisé** : `max_tokens` est ajusté à la place restante, et les erreurs de dépassement déclenchent la compaction de pi.
 - **Garde-fou** : un modèle qui annonce une action sans appeler d'outil, ou qui tourne en boucle, est coupé et relancé (deux fois au plus).
 - **Mode Ultracode** (`Alt+U`, `/ultracode` ou le mot « ultracode ») : le modèle dirige une équipe de sous-agents qui travaillent en parallèle.
-- **Disciples à la demande** : `/peripateticien` (exploration), `/euclide` (plan), `/hephaistos` (implémentation), `/socrate` (relecture et tests).
+- **Disciples à la demande** : `/peripateticien` (exploration), `/euclide` (plan), `/hephaistos` (implémentation), `/socrate` (relecture et tests), `/sappho` (documentation, messages de commit).
 - **Interface** : en-tête, thème et animations aux couleurs du LISN, uniquement quand un modèle Aristote est actif.
 
 ## Commandes
@@ -28,7 +28,7 @@ La commande installe Node.js si besoin (version privée, sans sudo), pi, l'exten
 |---|---|
 | `/aristote` | état des modèles, de la clé et de la session |
 | `/aristote refresh` | revérifier les modèles |
-| `/aristote maj` | mettre à jour l'extension |
+| `/maj` | mettre à jour l'extension |
 | `/aristote key sk-…` | changer de clé API |
 | `/ultracode [on\|off]` | mode Ultracode |
 
@@ -43,4 +43,11 @@ install.sh             l'installateur
 site/index.html        la page d'installation (GitLab Pages)
 ```
 
-Pour publier une nouvelle version : modifier `extensions/aristote/VERSION`, pousser sur `main`. La CI publie la page, l'archive et le numéro de version ; les utilisateurs sont prévenus au lancement suivant de pi.
+Pour publier une nouvelle version : modifier `extensions/aristote/VERSION`, pousser sur `main`. La CI publie la page, l'archive et le numéro de version ; les utilisateurs sont prévenus au lancement suivant de pi et tapent `/maj`.
+
+## Tests
+
+```sh
+./test/run.sh                                   # tests unitaires (sans réseau)
+ARISTOTE_API_KEY=sk-… python3 bench/bench.py    # banc d'essai réel : pi brut contre pi × Aristote
+```
