@@ -50,4 +50,5 @@ Pour publier une nouvelle version : modifier `extensions/aristote/VERSION`, pous
 ```sh
 ./test/run.sh                                   # tests unitaires (sans réseau)
 ARISTOTE_API_KEY=sk-… python3 bench/bench.py    # banc d'essai réel : pi brut contre pi × Aristote
+python3 tools/termshot.py --out captures snap:accueil   # capture PNG de pi (pip install pyte pillow)
 ```
