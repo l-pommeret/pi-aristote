@@ -205,7 +205,8 @@ const SNAPSHOT = `(() => {
 		if (n >= 60) break;
 	}
 	const text = (document.body?.innerText || '').replace(/\\n{3,}/g, '\\n\\n').trim();
-	return { title: document.title, url: location.href, items, text };
+	const links = [...document.querySelectorAll('a[href]')].map((a) => a.href).filter((h) => /^https?:/.test(h)).slice(0, 2000);
+	return { title: document.title, url: location.href, items, text, links };
 })()`;
 
 const RESULTS = `(() => {
@@ -238,8 +239,22 @@ async function rejectCookies(page: any) {
 	await page.evaluate(REJECT_COOKIES).catch(() => false);
 }
 
+const seen = new Set<string>();
+const norm = (u: string) => {
+	try {
+		const x = new URL(u);
+		x.hash = "";
+		return `${x.host.replace(/^www\./, "")}${x.pathname.replace(/\/+$/, "")}${x.search}`;
+	} catch {
+		return u;
+	}
+};
+const remember = (urls: string[]) => urls.forEach((u) => seen.add(norm(u)));
+const URL_RE = /\bhttps?:\/\/[^\s<>"'«»)]+|\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>"'«»)]*)?/gi;
+
 async function state(page: any, excerpt: number) {
 	const s = await page.evaluate(SNAPSHOT);
+	remember([s.url, ...s.links]);
 	const text = s.text.length > excerpt ? `${s.text.slice(0, excerpt)}\n[… /read for more]` : s.text;
 	return {
 		title: s.title,
@@ -275,7 +290,8 @@ export function installNavigateur(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "browser",
 		label: "Navigateur",
-		description: "Web browser the user can watch. Element numbers [n] come from the last result.",
+		description:
+			"Web browser the user can watch. Navigate by search and click [n]; open only urls given by the user. Cite only pages you actually read.",
 		parameters: Params,
 		executionMode: "sequential",
 
@@ -301,6 +317,7 @@ export function installNavigateur(pi: ExtensionAPI) {
 						await page.waitForSelector(engine.ready, { timeout: 8_000 }).catch(() => {});
 						await rejectCookies(page);
 						results = await page.evaluate(RESULTS);
+					remember(await page.evaluate("[...document.querySelectorAll('[data-pi]')].map((a) => a.href).filter(Boolean)"));
 						if (results.length) break;
 					}
 					await say(s, ` ${results.length} résultats pour « ${q} »`);
@@ -316,6 +333,16 @@ export function installNavigateur(pi: ExtensionAPI) {
 				case "open": {
 					if (!params.url) throw new Error("open needs a url");
 					const url = /^[a-z]+:\/\//i.test(params.url) ? params.url : `https://${params.url}`;
+					if (!seen.has(norm(url)))
+						return {
+							content: [
+								{
+									type: "text",
+									text: "Refused: this url was neither given by the user nor seen as a link on a visited page. Do not guess urls: use search, then click a result [n].",
+								},
+							],
+							details: { action: "open", title: "adresse inventée refusée", url },
+						};
 					await say(s, ` ouvre ${url}`);
 					await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
 					await settle(page);
@@ -426,5 +453,6 @@ export function installNavigateur(pi: ExtensionAPI) {
 		},
 	});
 
+	pi.on("input", async (event: any) => remember(String(event.text ?? "").match(URL_RE) ?? []));
 	pi.on("session_shutdown", async () => closeSession());
 }
