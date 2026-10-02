@@ -20,6 +20,7 @@ La commande installe Node.js si besoin (version privée, sans sudo), pi, l'exten
 - **Garde-fou** : un modèle qui annonce une action sans appeler d'outil, ou qui tourne en boucle, est coupé et relancé (deux fois au plus).
 - **Mode Ultracode** (`Alt+U`, `/ultracode` ou le mot « ultracode ») : le modèle dirige une équipe de sous-agents qui travaillent en parallèle.
 - **Disciples à la demande** : `/peripateticien` (exploration), `/euclide` (plan), `/hephaistos` (implémentation), `/socrate` (relecture et tests), `/sappho` (documentation, messages de commit).
+- **Navigateur et vision** : un outil `browser` ouvre des pages, en prend des captures que le modèle voit, lit, clique, remplit. Il utilise le navigateur Chromium déjà installé (Chrome, Brave, Edge…) ; `playwright-core` ne s'installe qu'au premier usage.
 - **Interface** : en-tête, thème et animations aux couleurs du LISN, uniquement quand un modèle Aristote est actif.
 
 ## Commandes

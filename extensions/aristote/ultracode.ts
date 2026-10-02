@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { PROVIDER } from "./config.ts";
 import { normalizeRole, type Role, ROLES } from "./lycee.ts";
@@ -23,16 +24,7 @@ Missions: 1-3 self-contained sentences starting with the target path.`;
 const Params = Type.Object({
 	tasks: Type.Array(
 		Type.Object({
-			role: Type.Union(
-				[
-					Type.Literal("eclaireur"),
-					Type.Literal("architecte"),
-					Type.Literal("ouvrier"),
-					Type.Literal("relecteur"),
-					Type.Literal("redacteur"),
-				],
-				{ description: "eclaireur (Péripatéticien) explores read-only, architecte (Euclide) plans, ouvrier (Héphaïstos) implements, relecteur (Socrate) verifies, redacteur (Sappho) writes docs" },
-			),
+			role: StringEnum(["eclaireur", "architecte", "ouvrier", "relecteur", "redacteur"] as const, { description: "eclaireur (Péripatéticien) explores read-only, architecte (Euclide) plans, ouvrier (Héphaïstos) implements, relecteur (Socrate) verifies, redacteur (Sappho) writes docs" }),
 			task: Type.String({ description: "Self-contained mission starting with the target path" }),
 			model: Type.Optional(Type.String({ description: "Aristote model id (default: current)" })),
 		}),

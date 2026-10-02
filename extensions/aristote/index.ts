@@ -18,6 +18,7 @@ import { guardStats, installGuard } from "./guard.ts";
 import { fetchModelIds, probeModel, specFor, toModelConfig, visibleIds } from "./models.ts";
 import { hooks, stats, streamAristote } from "./stream.ts";
 import { installUi, type PanelData } from "./ui.ts";
+import { installNavigateur } from "./navigateur.ts";
 import { installUltracode } from "./ultracode.ts";
 
 const SUBAGENT = Boolean(process.env.ARISTOTE_SUBAGENT);
@@ -166,6 +167,7 @@ export default async function (pi: ExtensionAPI) {
 
 	installGuard(pi);
 	if (!SUBAGENT) {
+		installNavigateur(pi);
 		const ultra = installUltracode(pi, () => visibleIds(cache));
 		installUi(pi, () => ({
 			available: visibleIds(cache).length,
