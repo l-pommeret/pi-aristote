@@ -9,6 +9,43 @@ export const AGENT_DIR = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi
 
 const AUTH_FILE = join(AGENT_DIR, "auth.json");
 const CACHE_FILE = join(AGENT_DIR, "aristote-cache.json");
+const PREFS_FILE = join(AGENT_DIR, "aristote-preferences.json");
+
+export const LANGUES: Record<string, string> = {
+	fr: "French",
+	en: "English",
+	es: "Spanish",
+	de: "German",
+	it: "Italian",
+	pt: "Portuguese",
+	nl: "Dutch",
+	el: "Greek",
+	ar: "Arabic",
+	zh: "Chinese",
+	ja: "Japanese",
+};
+
+export function getLangue(): string {
+	try {
+		return JSON.parse(readFileSync(PREFS_FILE, "utf8")).langue || "auto";
+	} catch {
+		return "auto";
+	}
+}
+
+export function setLangue(langue: string): void {
+	let prefs: Record<string, unknown> = {};
+	try {
+		prefs = JSON.parse(readFileSync(PREFS_FILE, "utf8"));
+	} catch {}
+	prefs.langue = langue;
+	writeJsonAtomic(PREFS_FILE, prefs);
+}
+
+export function langueInstruction(fallback = "the user's language"): string {
+	const l = getLangue();
+	return l === "auto" ? `Reply in ${fallback}.` : `Reply in ${LANGUES[l] ?? l}.`;
+}
 
 export const HEALTH_TTL_MS = 30 * 60 * 1000;
 

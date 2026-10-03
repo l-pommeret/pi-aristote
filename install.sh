@@ -122,6 +122,9 @@ else
 	ok "pi déjà présent ($(pi --version 2>/dev/null))"
 fi
 
+WAS_INSTALLED=""
+[ -d "$AGENT_DIR/extensions/aristote" ] && WAS_INSTALLED=1
+
 say "Téléchargement de l'extension Aristote…"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -133,23 +136,53 @@ ok "Extension $(cat "$AGENT_DIR/extensions/aristote/VERSION" 2>/dev/null) instal
 
 [ -n "$AUTO" ] && exit 0
 
-# Ancienne config Aristote dans models.json : elle masquerait l'extension.
-AGENT_DIR="$AGENT_DIR" node -e '
-const fs = require("fs"), p = process.env.AGENT_DIR + "/models.json";
-try {
-	const m = JSON.parse(fs.readFileSync(p, "utf8"));
-	if (m.providers && m.providers.aristote) {
-		fs.copyFileSync(p, p + ".avant-pi-aristote");
-		delete m.providers.aristote;
-		fs.writeFileSync(p, JSON.stringify(m, null, 2) + "\n");
-		console.log("  ancienne configuration Aristote retirée de models.json (copie : models.json.avant-pi-aristote)");
+# Toute modification de configuration passe par ici : lecture prudente, sauvegarde datée, jamais d'écriture sur un fichier illisible.
+cat >"$tmp/cfg.js" <<'JS'
+const fs = require("fs"), path = require("path");
+const dir = process.env.AGENT_DIR, cmd = process.argv[2];
+const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+const load = (name) => {
+	const p = path.join(dir, name);
+	if (!fs.existsSync(p)) return { p, data: {} };
+	try { return { p, data: JSON.parse(fs.readFileSync(p, "utf8")) }; } catch { return { p, data: null }; }
+};
+const save = (f, mode) => {
+	if (fs.existsSync(f.p)) {
+		const b = path.join(dir, "backups");
+		fs.mkdirSync(b, { recursive: true });
+		const dst = path.join(b, `${path.basename(f.p)}.${stamp}`);
+		fs.copyFileSync(f.p, dst);
+		console.log(dst);
 	}
-} catch {}'
+	fs.writeFileSync(f.p, JSON.stringify(f.data, null, 2) + "\n", mode ? { mode } : undefined);
+	if (mode) fs.chmodSync(f.p, mode);
+};
+const need = (f) => { if (!f.data) { console.error(`${f.p} illisible : je n'y touche pas.`); process.exit(3); } return f; };
+const f = { auth: () => load("auth.json"), models: () => load("models.json"), settings: () => load("settings.json") };
+switch (cmd) {
+	case "has-key": { const a = f.auth().data; process.stdout.write(a && a.aristote && a.aristote.key ? "1" : ""); break; }
+	case "set-key": { const a = need(f.auth()); a.data.aristote = { type: "api_key", key: process.env.KEY }; save(a, 0o600); break; }
+	case "models-conflict": { const m = f.models().data; process.stdout.write(m && m.providers && m.providers.aristote ? "1" : ""); break; }
+	case "models-remove": { const m = need(f.models()); delete m.data.providers.aristote; save(m); break; }
+	case "default": { const s = f.settings().data; process.stdout.write(s ? s.defaultProvider || "" : "?"); break; }
+	case "set-default": { const s = need(f.settings()); s.data.defaultProvider = "aristote"; s.data.defaultModel = "qwen-3.8-27b"; save(s); break; }
+}
+JS
+cfg() { AGENT_DIR="$AGENT_DIR" node "$tmp/cfg.js" "$@"; }
+backup_note() { [ -n "$1" ] && printf '  %ssauvegarde de l'"'"'ancien fichier : %s%s\n' "$D" "$1" "$Z"; return 0; }
 
-has_key="$(AGENT_DIR="$AGENT_DIR" node -e '
-try { const a = require(process.env.AGENT_DIR + "/auth.json"); process.stdout.write(a.aristote && a.aristote.key ? "1" : ""); } catch {}')"
+if [ -n "$(cfg models-conflict)" ]; then
+	printf '\n'
+	say "Tu as déjà ta propre configuration « aristote » dans models.json : elle prend le pas sur l'extension."
+	REPLY=n
+	ask "  La retirer pour utiliser l'extension (une sauvegarde est faite avant) ? [o/N] "
+	case "$REPLY" in
+		o | O | oui | Oui) out="$(cfg models-remove)" && ok "Configuration retirée de models.json" && backup_note "$out" ;;
+		*) printf '  %sGardée telle quelle : les modèles de ton models.json resteront prioritaires.%s\n' "$D" "$Z" ;;
+	esac
+fi
 
-if [ -z "$has_key" ] && [ -z "${ARISTOTE_API_KEY:-}" ]; then
+if [ -z "$(cfg has-key)" ] && [ -z "${ARISTOTE_API_KEY:-}" ]; then
 	printf '\n'
 	say "Il faut ta clé API Aristote (elle commence par ${B}sk-${Z})."
 	printf '  %sTu la trouves ici, après connexion avec ton compte universitaire :%s %s%s%s\n' "$D" "$Z" "$S" "https://aristote.education/llm-access/" "$Z"
@@ -159,34 +192,32 @@ if [ -z "$has_key" ] && [ -z "${ARISTOTE_API_KEY:-}" ]; then
 		[ -z "$key" ] && { printf '  %sPas de clé : récupère-la sur https://aristote.education/llm-access/ puis tape /aristote key sk-… dans pi%s\n' "$D" "$Z"; break; }
 		code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $key" https://llm.aristote.education/v1/models || true)"
 		if [ "$code" = 200 ]; then
-			AGENT_DIR="$AGENT_DIR" KEY="$key" node -e '
-const fs = require("fs"), p = process.env.AGENT_DIR + "/auth.json";
-let a = {}; try { a = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
-a.aristote = { type: "api_key", key: process.env.KEY };
-fs.writeFileSync(p, JSON.stringify(a, null, 2) + "\n", { mode: 0o600 }); fs.chmodSync(p, 0o600);'
-			ok "Clé vérifiée et enregistrée"
+			if out="$(KEY="$key" cfg set-key)"; then ok "Clé vérifiée et enregistrée"; backup_note "$out"; else printf '  %sDonne-la plutôt dans pi avec /aristote key sk-…%s\n' "$D" "$Z"; fi
 			break
 		fi
 		printf '  %sAristote refuse cette clé (HTTP %s). Réessaie, ou appuie sur Entrée pour passer.%s\n' "$R" "$code" "$Z"
 	done
 fi
 
-REPLY=n
-ask "$(printf '\n%sΑ%s Utiliser Aristote par défaut quand tu lances pi ? [O/n] ' "$J" "$Z")"
-case "$REPLY" in
-	n | N | non | Non) ;;
-	*)
-		AGENT_DIR="$AGENT_DIR" node -e '
-const fs = require("fs"), p = process.env.AGENT_DIR + "/settings.json";
-let s = {}; try { s = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
-s.defaultProvider = "aristote"; s.defaultModel = "qwen-3.8-27b";
-fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n");'
+current="$(cfg default)"
+if [ -z "$WAS_INSTALLED" ] && [ "$current" != "aristote" ] && [ "$current" != "?" ]; then
+	if [ -n "$current" ]; then
+		REPLY=n
+		ask "$(printf '\n%sΑ%s Ton fournisseur par défaut est « %s ». Le remplacer par Aristote ? [o/N] ' "$J" "$Z" "$current")"
+		case "$REPLY" in o | O | oui | Oui) REPLY=o ;; *) REPLY=n ;; esac
+	else
+		REPLY=n
+		ask "$(printf '\n%sΑ%s Utiliser Aristote par défaut quand tu lances pi ? [O/n] ' "$J" "$Z")"
+		case "$REPLY" in n | N | non | Non) REPLY=n ;; *) REPLY=o ;; esac
+	fi
+	if [ "$REPLY" = o ] && out="$(cfg set-default)"; then
 		ok "Aristote (qwen-3.8-27b) est le modèle par défaut"
-		;;
-esac
+		backup_note "$out"
+	fi
+fi
 
 printf '\n%s%s C'"'"'est prêt !%s Dans n'"'"'importe quel dossier de code, tape %spi%s.\n' "$G" "$B" "$Z" "$B" "$Z"
-printf '  %sAlt+U : mode Ultracode · /peripateticien, /euclide, /hephaistos, /socrate : disciples · /aristote : état%s\n' "$D" "$Z"
+printf '  %sAlt+U : mode Ultracode · /peripateticien, /euclide, /hephaistos, /socrate, /sappho : disciples · /langue · /aristote : état%s\n' "$D" "$Z"
 [ -z "$PATH_CHANGED" ] || printf '  %sOuvre un nouveau terminal pour que la commande pi soit trouvée.%s\n' "$O" "$Z"
 
 REPLY=n

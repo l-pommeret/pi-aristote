@@ -5,7 +5,7 @@ import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
-import { PROVIDER } from "./config.ts";
+import { langueInstruction, PROVIDER } from "./config.ts";
 import { normalizeRole, type Role, ROLES } from "./lycee.ts";
 import { LISN, rgb, TRUECOLOR } from "./ui.ts";
 
@@ -82,7 +82,7 @@ function runAgent(run: AgentRun, cwd: string, thinking: string | undefined, sign
 	const role = ROLES[run.role];
 	const args = ["--mode", "json", "-p", "--no-session", "--model", `${PROVIDER}/${run.model}`, "--tools", role.tools];
 	if (thinking) args.push("--thinking", thinking);
-	args.push("--append-system-prompt", `${role.prompt} Reply in French.`, `Mission : ${run.task}`);
+	args.push("--append-system-prompt", `${role.prompt} ${langueInstruction("the mission's language")}`, `Mission : ${run.task}`);
 
 	return new Promise((resolve) => {
 		run.status = "en cours";

@@ -63,3 +63,36 @@ test("annonce : pas de faux positif sur une question ou une réponse finale", ()
 	assert.ok(!looksLikeAnnouncement("Les trois bugs sont corrigés et les tests passent."));
 	assert.ok(!looksLikeAnnouncement(""));
 });
+
+const CONCLUSIONS = [
+	"C'est terminé : les trois bugs sont corrigés et les tests passent. Je vais m'arrêter là.",
+	"Voilà, tout est en place. Si tu veux, je peux aussi lancer les tests.",
+	"N'hésite pas si tu veux que je continue sur la documentation.",
+	"Everything is fixed. Let me know if you'd like me to run the full test suite.",
+	"Done! I'll be here if you need anything else.",
+	"Récapitulatif :\n- calc.py corrigé\n- tests ajoutés\n- README mis à jour\nJe vais rester disponible pour la suite.",
+	"## Bilan\nLe module est refactorisé, la couverture passe à 92 %. Prochaine étape possible : je vais pouvoir ajouter les tests d'intégration quand tu voudras.",
+	"J'ai lu les trois fichiers. En résumé, calc.py contient deux fonctions, greet.py une seule, et test_calc.py teste add. Je vais conclure ainsi : le code est simple et bien découpé.",
+];
+
+for (const texte of CONCLUSIONS) {
+	test(`conclusion non relancée : « ${texte.slice(0, 45)}… »`, () => {
+		assert.ok(!looksLikeAnnouncement(texte));
+	});
+}
+
+const ANNONCES = [
+	"Je vais maintenant lister les fichiers du dossier :",
+	"Parfait. Je lance les tests pour vérifier.",
+	"Let me run the test suite now.",
+	"Je vais lire calc.py pour comprendre le bug.",
+	"Now I'll edit the file to fix the bug.",
+	"Bien vu. Voici la commande que je lance :",
+	"I'm going to check the configuration first.",
+];
+
+for (const texte of ANNONCES) {
+	test(`annonce attrapée : « ${texte.slice(0, 45)} »`, () => {
+		assert.ok(looksLikeAnnouncement(texte));
+	});
+}

@@ -15,11 +15,25 @@ function lastAssistantText(message: any): { text: string; hasTool: boolean } {
 	};
 }
 
+const ACT =
+	"(lancer|lister|lire|exécuter|vérifier|regarder|ouvrir|créer|modifier|corriger|chercher|rechercher|appeler|utiliser|installer|tester|examiner|explorer|écrire|ajouter|éditer|analyser|parcourir|inspecter|consulter)";
+const ACTION_NOW = new RegExp(
+	`\\b(je (vais|dois) (maintenant |d'abord |donc )?${ACT}|je (lance|lis|exécute|vérifie|regarde|ouvre|crée|modifie|corrige|cherche|teste|examine|explore|consulte|inspecte|passe à)|j'(exécute|utilise|appelle|examine|explore|ouvre|édite|inspecte)|voici (la commande|l'appel)|let me (now )?(run|check|look|open|read|edit|create|fix|search|use|call|execute|try|update|write|install|test|inspect|list|explore)|i('ll| will| am going to|'m going to) (now |first )?(run|check|look|open|read|edit|create|fix|search|use|call|execute|try|update|write|install|test|inspect|list|explore)|now i('ll| will)|calling the tool)\\b`,
+	"i",
+);
+const OFFER =
+	/\b(si tu (veux|le souhaites|préfères)|n'hésite pas|je peux (aussi|également|ensuite)|je reste|tu veux que|souhaites-tu|dis-moi|let me know|if you('d| would)? (like|want|need)|feel free|i can (also|then)|i'll be here|happy to)\b/i;
+
+/** Le tour se termine sur une promesse d'action, sans appel d'outil ? */
 export function looksLikeAnnouncement(text: string): boolean {
-	if (!text) return false;
-	const tail = text.slice(-400).trim();
-	if (/\?\s*$/.test(tail)) return false;
-	return /[:：]\s*$/.test(tail) || ANNOUNCE.test(tail.split(/(?<=[.!])\s+/).slice(-2).join(" "));
+	const t = (text ?? "").trim();
+	if (!t || t.length > 600) return false;
+	if (/\?\s*$/.test(t)) return false;
+	if (/^\s*([-*•]|\d+[.)]|#{1,6})\s|```/m.test(t)) return false;
+	const last = t.split(/(?<=[.!…])\s+/).at(-1) ?? t;
+	if (OFFER.test(last)) return false;
+	if (/[:：]\s*$/.test(t)) return t.length < 300;
+	return ACTION_NOW.test(last);
 }
 
 export function findLoop(text: string, kind: "text" | "thinking" = "text"): string | undefined {

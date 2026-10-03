@@ -10,7 +10,11 @@ import {
 	loadCache,
 	maskKey,
 	PROVIDER,
+	getLangue,
+	LANGUES,
+	langueInstruction,
 	resolveApiKey,
+	setLangue,
 	saveApiKey,
 	saveCache,
 } from "./config.ts";
@@ -40,8 +44,7 @@ const newer = (a: string, b: string) => {
 const FALLBACK_IDS = ["qwen-3.8-27b", "qwen-3.6-35b-instruct", "gemma-4-31b"];
 
 const SYSTEM_ADDENDUM = `
-
-Reply in French unless the user writes in another language. No emojis.
+No emojis.
 To act, call the tool; never just announce an action.`;
 
 export default async function (pi: ExtensionAPI) {
@@ -162,7 +165,7 @@ export default async function (pi: ExtensionAPI) {
 	pi.on("before_agent_start", async (event, ctx) => {
 		lastCtx = ctx;
 		if (ctx.model?.provider !== PROVIDER) return;
-		return { systemPrompt: event.systemPrompt + SYSTEM_ADDENDUM };
+		return { systemPrompt: `${event.systemPrompt}\n\n${langueInstruction()}${SYSTEM_ADDENDUM}` };
 	});
 
 	installGuard(pi);
@@ -198,6 +201,19 @@ export default async function (pi: ExtensionAPI) {
 		description: "Quitter pi (comme /quit)",
 		handler: async (_args, ctx) => ctx.shutdown(),
 	});
+
+	const NOMS: Record<string, string> = { fr: "français", en: "anglais", es: "espagnol", de: "allemand", it: "italien", pt: "portugais", nl: "néerlandais", el: "grec", ar: "arabe", zh: "chinois", ja: "japonais" };
+	const langue = async (args: string, ctx: any) => {
+		const v = args.trim().toLowerCase();
+		const nom = (l: string) => (l === "auto" ? "auto (la langue dans laquelle tu écris)" : NOMS[l] ?? l);
+		if (!v) return ctx.ui.notify(`Langue des réponses : ${nom(getLangue())}. Exemples : /langue auto · /langue fr · /langue en · /langue es`, "info");
+		setLangue(v);
+		ctx.ui.notify(`Le modèle répondra désormais en ${nom(v)}.`, "info");
+	};
+	const completions = (p: string) =>
+		["auto", ...Object.keys(LANGUES)].filter((v) => v.startsWith(p)).map((v) => ({ value: v, label: v === "auto" ? "auto" : `${v} · ${NOMS[v]}` }));
+	pi.registerCommand("langue", { description: "Langue des réponses du modèle (auto, fr, en, es…)", getArgumentCompletions: completions, handler: langue });
+	pi.registerCommand("language", { description: "Reply language (auto, en, fr, es…)", getArgumentCompletions: completions, handler: langue });
 
 	pi.registerCommand("maj", {
 		description: "Mettre à jour l'extension Aristote (nouveaux disciples, correctifs…)",

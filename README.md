@@ -12,6 +12,8 @@ Avant tout, récupère ta clé API sur **https://aristote.education/llm-access/*
 
 La commande installe Node.js si besoin (version privée, sans sudo), pi, l'extension et le thème, puis demande ta clé API Aristote. Pour mettre à jour ensuite : `/maj` dans pi.
 
+L'installateur respecte les configurations existantes (plusieurs fournisseurs, `models.json`, fournisseur par défaut) : il ne modifie rien sans le demander, sauvegarde chaque fichier avant de l'écrire (`~/.pi/agent/backups/`) et ne touche pas à un fichier qu'il ne sait pas lire.
+
 ## Ce que fait l'extension
 
 - **Modèles automatiques** : la liste vient de `llm.aristote.education` à chaque lancement (avec cache). Les nouveaux modèles sont mesurés (contexte, images, réflexion), les modèles en panne masqués.
@@ -30,6 +32,7 @@ La commande installe Node.js si besoin (version privée, sans sudo), pi, l'exten
 | `/aristote` | état des modèles, de la clé et de la session |
 | `/aristote refresh` | revérifier les modèles |
 | `/maj` | mettre à jour l'extension |
+| `/langue [auto\|fr\|en\|es…]` | langue des réponses (par défaut : celle dans laquelle tu écris) |
 | `/clear` | repartir de zéro (comme `/new`) |
 | `/exit` | quitter (comme `/quit`) |
 | `/aristote key sk-…` | changer de clé API |

@@ -149,6 +149,7 @@ function commandRows(): [number, string, string, string, string][] {
 	return [
 		[0, "Ω", "/ultracode", "Le Lycée", "entre en session, tous les disciples en parallèle"],
 		...Object.values(ROLES).map((r) => [1, r.icon, `/${r.command}`, r.label, r.summary] as [number, string, string, string, string]),
+		[0, "Γ", "/langue", "Langue", "des réponses : auto, fr, en, es…"],
 		[0, "Δ", "/maj", "Mise à jour", "de l'extension Aristote"],
 		[0, "Α", "/aristote", "État", "des modèles et de la clé API"],
 	];
