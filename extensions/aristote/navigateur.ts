@@ -17,12 +17,14 @@ const IDLE_MS = 15 * 60 * 1000;
 
 const Params = Type.Object({
 	action: StringEnum(["search", "open", "screenshot", "read", "click", "type", "scroll", "back"] as const, {
-		description: "search = web search (prefer it to guessing urls); screenshot = see the page; read = full text",
+		description: "search = web search (prefer it to guessing urls); screenshot = see the page with [n] labels; read = full text",
 	}),
 	url: Type.Optional(Type.String()),
 	target: Type.Optional(Type.String({ description: "[n] or visible text" })),
 	text: Type.Optional(Type.String({ description: "search query, text to type, or up/down for scroll" })),
 	submit: Type.Optional(Type.Boolean()),
+	x: Type.Optional(Type.Number({ description: "click/type at screenshot pixel x, when no [n] fits" })),
+	y: Type.Optional(Type.Number()),
 });
 
 function run(cmd: string, args: string[], cwd?: string): Promise<void> {
@@ -168,8 +170,10 @@ async function pointAt(s: Session, locator: any) {
 	await locator.scrollIntoViewIfNeeded({ timeout: 10_000 });
 	const box = await locator.boundingBox({ timeout: 10_000 });
 	if (!box) throw new Error("element not visible");
-	const x = Math.round(box.x + Math.min(box.width / 2, 40));
-	const y = Math.round(box.y + box.height / 2);
+	return moveTo(s, Math.round(box.x + Math.min(box.width / 2, 40)), Math.round(box.y + box.height / 2));
+}
+
+async function moveTo(s: Session, x: number, y: number) {
 	const distance = Math.hypot(x - s.pos.x, y - s.pos.y);
 	const duration = Math.round(Math.min(900, 250 + distance * 0.6));
 	await overlay(s.page, "move", s.pos.x, s.pos.y, 0);
@@ -180,6 +184,12 @@ async function pointAt(s: Session, locator: any) {
 	return { x, y };
 }
 
+async function clickAt(s: Session, x: number, y: number) {
+	await moveTo(s, x, y);
+	await overlay(s.page, "ripple", x, y);
+	await s.page.mouse.click(x, y);
+}
+
 async function click(s: Session, locator: any) {
 	const { x, y } = await pointAt(s, locator);
 	await overlay(s.page, "ripple", x, y);
@@ -187,6 +197,7 @@ async function click(s: Session, locator: any) {
 }
 
 const SNAPSHOT = `(() => {
+	document.querySelectorAll('[data-pi]').forEach((el) => el.removeAttribute('data-pi'));
 	const items = [];
 	const nodes = document.querySelectorAll('a[href], button, input:not([type=hidden]), textarea, select, [role=button], [role=link], [role=tab], [onclick]');
 	let n = 0;
@@ -251,6 +262,26 @@ const norm = (u: string) => {
 };
 const remember = (urls: string[]) => urls.forEach((u) => seen.add(norm(u)));
 const URL_RE = /\bhttps?:\/\/[^\s<>"'«»)]+|\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>"'«»)]*)?/gi;
+
+const MARKS = `((show) => {
+	document.querySelectorAll('.__ar_m').forEach((e) => e.remove());
+	if (!show) return [];
+	const seen = [];
+	for (const el of document.querySelectorAll('[data-pi]')) {
+		const r = el.getBoundingClientRect();
+		if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
+		const box = document.createElement('div');
+		box.className = '__ar_m';
+		box.style.cssText = 'position:fixed;z-index:2147483645;pointer-events:none;border-radius:3px;outline:2px solid rgba(242,188,60,.95);left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px';
+		const tag = document.createElement('div');
+		tag.className = '__ar_m';
+		tag.textContent = el.getAttribute('data-pi');
+		tag.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;font:700 12px/1 system-ui,sans-serif;color:#141538;background:#F2BC3C;border:1px solid #141538;border-radius:4px;padding:2px 4px;left:' + Math.max(0, r.left - 3) + 'px;top:' + Math.max(0, r.top - 10) + 'px';
+		document.documentElement.append(box, tag);
+		seen.push(el.getAttribute('data-pi'));
+	}
+	return seen;
+})`;
 
 async function state(page: any, excerpt: number) {
 	const s = await page.evaluate(SNAPSHOT);
@@ -354,14 +385,22 @@ export function installNavigateur(pi: ExtensionAPI) {
 					const vision = (ctx.model as any)?.input?.includes("image");
 					if (!vision) return { content: [{ type: "text", text: "This model cannot see images; use read instead." }], details: { action: "screenshot" } };
 					await say(s, " regarde la page");
-					await page.waitForTimeout(150);
-					const data = (await page.screenshot({ type: "jpeg", quality: 60 })).toString("base64");
+					const st = await state(page, 0);
+					const visible: string[] = await page.evaluate(`${MARKS}(true)`);
+					await page.waitForTimeout(120);
+					const shot = await page.screenshot({ type: "jpeg", quality: 60, scale: "css" });
+					await page.evaluate(`${MARKS}(false)`).catch(() => {});
+					const { w, h } = await page.evaluate("({ w: innerWidth, h: innerHeight })");
+					const lines = st.text.split("\n").filter((l) => visible.includes(l.match(/^\[(\d+)\]/)?.[1] ?? ""));
 					return {
 						content: [
-							{ type: "text", text: `${await page.title()}\n${page.url()}` },
-							{ type: "image", data, mimeType: "image/jpeg" },
+							{
+								type: "text",
+								text: `${st.title}\n${st.url}\nScreenshot ${w}x${h}: yellow labels are element numbers, click them with [n]; use x,y only for unlabeled spots.\n${lines.join("\n")}`,
+							},
+							{ type: "image", data: shot.toString("base64"), mimeType: "image/jpeg" },
 						],
-						details: { action: "screenshot", title: await page.title(), url: page.url() },
+						details: { action: "screenshot", title: st.title, url: st.url },
 					};
 				}
 				case "read": {
@@ -374,7 +413,14 @@ export function installNavigateur(pi: ExtensionAPI) {
 					break;
 				}
 				case "click": {
-					if (!params.target) throw new Error("click needs a target");
+					if (!params.target && params.x !== undefined && params.y !== undefined) {
+						await say(s, ` clique en (${Math.round(params.x)}, ${Math.round(params.y)})`);
+						await clickAt(s, params.x, params.y);
+						await settle(s.page);
+						out = await state(s.page, 1200);
+						break;
+					}
+					if (!params.target) throw new Error("click needs a target [n] or x,y");
 					const el = locate(page, params.target);
 					const label = ((await el.innerText({ timeout: 3_000 }).catch(() => "")) || params.target).replace(/\s+/g, " ").trim().slice(0, 60);
 					await say(s, ` clique sur « ${label} »`);
@@ -385,11 +431,15 @@ export function installNavigateur(pi: ExtensionAPI) {
 					break;
 				}
 				case "type": {
-					if (!params.target || params.text === undefined) throw new Error("type needs target and text");
-					const el = locate(page, params.target);
+					if (params.text === undefined) throw new Error("type needs text");
 					await say(s, ` écrit « ${params.text.slice(0, 50)} »`);
-					await click(s, el);
-					await el.fill("", { timeout: 5_000 }).catch(() => {});
+					if (params.target) {
+						const el = locate(page, params.target);
+						await click(s, el);
+						await el.fill("", { timeout: 5_000 }).catch(() => {});
+					} else if (params.x !== undefined && params.y !== undefined) {
+						await clickAt(s, params.x, params.y);
+					}
 					await page.keyboard.type(params.text, { delay: s.headless ? 0 : 35 });
 					if (params.submit) {
 						await page.keyboard.press("Enter");
@@ -432,7 +482,8 @@ export function installNavigateur(pi: ExtensionAPI) {
 			const what =
 				args?.action === "search"
 					? `« ${args?.text ?? args?.target ?? ""} »`
-					: (args?.url ?? (args?.target ? `[${String(args.target).replace(/^\[|\]$/g, "")}]` : ""));
+					: (args?.url ??
+						(args?.target ? `[${String(args.target).replace(/^\[|\]$/g, "")}]` : args?.x !== undefined ? `(${Math.round(args.x)}, ${Math.round(args.y)})` : ""));
 			return new Text(
 				`${theme.fg("accent", "θ")} ${theme.bold(theme.fg("toolTitle", "Navigateur"))} ${theme.fg("muted", verbs[args?.action] ?? args?.action ?? "")} ${theme.fg("text", what)}${
 					args?.action === "type" && args?.text ? theme.fg("muted", ` « ${String(args.text).slice(0, 40)} »`) : ""
