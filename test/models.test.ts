@@ -72,3 +72,11 @@ test("rôles : surnoms, commandes, accents et anglais sont reconnus", async () =
 	assert.equal(normalizeRole("Sappho"), "redacteur");
 	assert.equal(normalizeRole("platon"), undefined, "un rôle inconnu n'est plus maquillé en éclaireur");
 });
+
+test("rôles : ce que la normalisation produit est accepté par le schéma de l'outil", async () => {
+	const { ROLE_NAMES, roleName } = await import("../extensions/aristote/lycee.ts");
+	for (const v of ["eclaireur", "peripateticien", "Péripatéticien", "planner", "euclide", "ouvrier", "Héphaïstos", "relecteur", "socrate", "redacteur", "Sappho", "writer"]) {
+		assert.ok(ROLE_NAMES.includes(roleName(v)!), `${v} → ${roleName(v)}`);
+	}
+	assert.equal(roleName("platon"), undefined);
+});

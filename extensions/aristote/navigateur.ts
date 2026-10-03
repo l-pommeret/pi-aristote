@@ -126,7 +126,9 @@ async function start(progress: (msg: string) => void): Promise<Session> {
 		args: [`--window-size=${SIZE.width},${SIZE.height}`, "--no-first-run", "--no-default-browser-check"],
 	});
 	await context.addInitScript(OVERLAY);
-	const page = context.pages()[0] ?? (await context.newPage());
+	const restored = context.pages();
+	const page = restored[0] ?? (await context.newPage());
+	for (const p of restored.slice(1)) await p.close().catch(() => {});
 	const s: Session = { context, page, headless: hidden, pos: { x: 640, y: 400 } };
 	context.on("page", async (p: any) => {
 		s.page = p;
@@ -160,17 +162,26 @@ function touch(s: Session) {
 }
 
 const overlay = (page: any, fn: string, ...args: unknown[]) =>
-	page.evaluate(`window.__aristote && window.__aristote.${fn}(${args.map((a) => JSON.stringify(a)).join(",")})`).catch(() => {});
+	Promise.race([
+		page.evaluate(`window.__aristote && window.__aristote.${fn}(${args.map((a) => JSON.stringify(a)).join(",")})`).catch(() => {}),
+		new Promise((resolve) => setTimeout(resolve, 1500)),
+	]);
 
 async function say(s: Session, text: string) {
 	await overlay(s.page, "say", text);
 }
 
+const HIT = (el: any) => {
+	const rects = [...el.getClientRects()].filter((r) => r.width > 1 && r.height > 1);
+	const pts = rects.map((r) => ({ x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 }));
+	return pts.find((p) => el.contains(document.elementFromPoint(p.x, p.y))) ?? pts[0];
+};
+
 async function pointAt(s: Session, locator: any) {
 	await locator.scrollIntoViewIfNeeded({ timeout: 10_000 });
-	const box = await locator.boundingBox({ timeout: 10_000 });
-	if (!box) throw new Error("element not visible");
-	return moveTo(s, Math.round(box.x + Math.min(box.width / 2, 40)), Math.round(box.y + box.height / 2));
+	const pt = await locator.evaluate(HIT, undefined, { timeout: 10_000 });
+	if (!pt) throw new Error("element not visible");
+	return moveTo(s, Math.round(pt.x), Math.round(pt.y));
 }
 
 async function moveTo(s: Session, x: number, y: number) {
@@ -260,8 +271,25 @@ const norm = (u: string) => {
 		return u;
 	}
 };
-const remember = (urls: string[]) => urls.forEach((u) => seen.add(norm(u)));
+const remember = (urls: string[]) =>
+	urls.forEach((u) => {
+		const v = u.replace(/[.,;:!?]+$/, "");
+		seen.add(norm(/^[a-z]+:\/\//i.test(v) ? v : `https://${v}`));
+	});
 const URL_RE = /\bhttps?:\/\/[^\s<>"'«»)]+|\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>"'«»)]*)?/gi;
+
+async function go(page: any, url: string): Promise<string> {
+	try {
+		await page.goto(url, { waitUntil: "commit", timeout: 20_000 });
+	} catch (e: any) {
+		await page.goto("about:blank", { timeout: 5_000 }).catch(() => {});
+		throw new Error(String(e?.message ?? e).split("\n")[0]);
+	}
+	const loaded = await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).then(() => true, () => false);
+	if (loaded) return "";
+	await page.evaluate("window.stop()").catch(() => {});
+	return "\n\n[The page was still loading after 15 s; this is what had arrived.]";
+}
 
 const MARKS = `((show) => {
 	document.querySelectorAll('.__ar_m').forEach((e) => e.remove());
@@ -344,7 +372,7 @@ export function installNavigateur(pi: ExtensionAPI) {
 						{ url: `https://duckduckgo.com/?q=${encodeURIComponent(q)}&kl=fr-fr`, ready: 'a[data-testid="result-title-a"]' },
 						{ url: `https://www.bing.com/search?q=${encodeURIComponent(q)}&setlang=fr&cc=FR`, ready: "#b_results > li.b_algo h2 a" },
 					]) {
-						await page.goto(engine.url, { waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => {});
+						await go(page, engine.url).catch(() => {});
 						await page.waitForSelector(engine.ready, { timeout: 8_000 }).catch(() => {});
 						await rejectCookies(page);
 						results = await page.evaluate(RESULTS);
@@ -375,9 +403,11 @@ export function installNavigateur(pi: ExtensionAPI) {
 							details: { action: "open", title: "adresse inventée refusée", url },
 						};
 					await say(s, ` ouvre ${url}`);
-					await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
-					await settle(page);
+					const slow = await go(page, url);
+					if (slow) await rejectCookies(page);
+					else await settle(page);
 					out = await state(page, 3000);
+					out.text += slow;
 					if (await blocked(page)) out.text += BLOCKED_NOTE;
 					break;
 				}
@@ -406,7 +436,7 @@ export function installNavigateur(pi: ExtensionAPI) {
 				case "read": {
 					await say(s, " lit la page");
 					const text: string = params.target
-						? await page.locator(params.target).first().innerText({ timeout: 5_000 })
+						? await locate(page, params.target).innerText({ timeout: 5_000 })
 						: await page.evaluate("document.body.innerText");
 					const clean = text.replace(/\n{3,}/g, "\n\n").trim();
 					out = { title: await page.title(), url: page.url(), text: clean.length > 12_000 ? `${clean.slice(0, 12_000)}\n[… truncated]` : clean };
@@ -416,7 +446,8 @@ export function installNavigateur(pi: ExtensionAPI) {
 					if (!params.target && params.x !== undefined && params.y !== undefined) {
 						await say(s, ` clique en (${Math.round(params.x)}, ${Math.round(params.y)})`);
 						await clickAt(s, params.x, params.y);
-						await settle(s.page);
+						await settle(page);
+						if (s.page !== page) await settle(s.page);
 						out = await state(s.page, 1200);
 						break;
 					}
@@ -425,7 +456,8 @@ export function installNavigateur(pi: ExtensionAPI) {
 					const label = ((await el.innerText({ timeout: 3_000 }).catch(() => "")) || params.target).replace(/\s+/g, " ").trim().slice(0, 60);
 					await say(s, ` clique sur « ${label} »`);
 					await click(s, el);
-					await settle(s.page);
+					await settle(page);
+					if (s.page !== page) await settle(s.page);
 					out = await state(s.page, 1200);
 					if (await blocked(s.page)) out.text += BLOCKED_NOTE;
 					break;

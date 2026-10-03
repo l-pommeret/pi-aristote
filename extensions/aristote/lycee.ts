@@ -82,3 +82,10 @@ export function normalizeRole(value: unknown): Role | undefined {
 	}
 	return ALIASES[v];
 }
+
+export const ROLE_NAMES = Object.values(ROLES).map((r) => r.command);
+
+export function roleName(value: unknown): string | undefined {
+	const role = normalizeRole(value);
+	return role ? ROLES[role].command : undefined;
+}

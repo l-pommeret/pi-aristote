@@ -126,9 +126,7 @@ function headerLines(width: number, theme: Theme, ctx: ExtensionContext, info: H
 			width,
 			sep,
 		),
-		...(info.ultra
-			? ["", `  ${orange("Ω", theme)}  ${theme.bold(orange("Ultracode actif", theme))}${theme.fg("muted", " · le Lycée est en session, les disciples attendent")}${theme.fg("dim", "  Alt+U lève la séance")}`]
-			: []),
+		...(info.ultra ? ["", ultraLine(width, theme)] : []),
 		"",
 		...((full && commandLines(width, theme)) || commandGrid(width, theme)),
 		"",
@@ -138,11 +136,28 @@ function headerLines(width: number, theme: Theme, ctx: ExtensionContext, info: H
 	return lines.map((l) => truncateToWidth(l, width));
 }
 
-const HINTS: [string, string][] = [["Échap", "interrompre"], ["Alt+U", "Ultracode"], ["Ctrl+L", "modèle"], ["Maj+Tab", "réflexion"], ["Ctrl+O", "déplier"], ["/clear", "repartir de zéro"], ["/exit", "quitter"]];
+function ultraLine(width: number, theme: Theme): string {
+	const head = `  ${orange("Ω", theme)}  ${theme.bold(orange("Ultracode actif", theme))}`;
+	const full = `${head}${theme.fg("muted", " · le Lycée est en session, les disciples attendent")}${theme.fg("dim", "  Alt+U lève la séance")}`;
+	return visibleWidth(full) <= width ? full : `${head}${theme.fg("dim", " · Alt+U lève la séance")}`;
+}
+
+const HINTS: [string, string][] = [["Échap", "interrompre"], ["Alt+U", "Ultracode"], ["Ctrl+L", "modèle"], ["Maj+Tab", "réflexion"], ["Ctrl+O", "déplier"], ["/clear", "table rase"], ["/exit", "quitter"]];
 
 function hintLines(width: number, theme: Theme): string[] {
 	const items = HINTS.map(([k, v]) => `${theme.fg("muted", k)} ${theme.fg("dim", v)}`);
-	return balanced(items, width - 4, "   ").map((l) => `  ${l}`);
+	const cols = Math.ceil(items.length / balanced(items, width - 4, "   ").length);
+	const colW = Array.from({ length: cols }, (_, c) => Math.max(...items.filter((_, i) => i % cols === c).map(visibleWidth)));
+	const glue = [3, 2].find((g) => colW.reduce((a, b) => a + b, 0) + g * (cols - 1) <= width - 4);
+	if (!glue) return balanced(items, width - 4, "   ").map((l) => `  ${l}`);
+	const lines: string[] = [];
+	items.forEach((item, i) => {
+		const c = i % cols;
+		const cell = c === cols - 1 || i === items.length - 1 ? item : item + " ".repeat(colW[c] - visibleWidth(item) + glue);
+		if (c === 0) lines.push(`  ${cell}`);
+		else lines[lines.length - 1] += cell;
+	});
+	return lines;
 }
 
 function commandRows(): [number, string, string, string, string][] {
@@ -325,6 +340,14 @@ function describeError(error?: string): string {
 	return `hors service · ${error ?? "injoignable"}`;
 }
 
+function checked(age: string): string {
+	const min = /^(\d+) min$/.exec(age)?.[1];
+	if (min === undefined) return "liste jamais vérifiée";
+	const n = Number(min);
+	if (n < 1) return "liste vérifiée à l'instant";
+	return `liste vérifiée il y a ${n < 60 ? `${n} min` : n < 2880 ? `${Math.round(n / 60)} h` : `${Math.round(n / 1440)} jours`}`;
+}
+
 function panel(d: PanelData, width: number, theme: Theme): string[] {
 	const inner = width - 4;
 	const b = (s: string) => theme.fg("border", s);
@@ -357,7 +380,7 @@ function panel(d: PanelData, width: number, theme: Theme): string[] {
 	});
 	const stat = (s: string) => {
 		const [, k = "", v = s] = /^(\S+)\s+(.*)$/.exec(s) ?? [];
-		return wrapTextWithAnsi(v, inner - 13).map((l, i) => field(i ? "" : k, theme.fg("muted", l)));
+		return wrapItems(v.split(" · "), inner - 13, " · ").map((l, i) => field(i ? "" : k, theme.fg("muted", l)));
 	};
 	const cmd = (c: string, what: string) => `${theme.fg("toolTitle", c)} ${theme.fg("dim", what)}`;
 	return [
@@ -365,7 +388,7 @@ function panel(d: PanelData, width: number, theme: Theme): string[] {
 		row(),
 		head("Connexion"),
 		field("serveur", theme.fg("text", d.baseUrl)),
-		field("clé", `${theme.fg("text", d.key)} ${theme.fg("dim", `· ${d.keySource} · liste vérifiée il y a ${d.age}`)}`),
+		field("clé", `${theme.fg("text", d.key)} ${theme.fg("dim", `· ${d.keySource} · ${checked(d.age)}`)}`),
 		row(),
 		row(`${theme.bold(theme.fg("accent", "Modèles"))}${theme.fg("dim", ` · ${up} sur ${d.models.length} répondent`)}`),
 		...models,

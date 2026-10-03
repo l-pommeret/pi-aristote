@@ -87,6 +87,8 @@ export function rewriteError(message: string): string {
 	if (/\b413\b|Request Entity Too Large/i.test(message))
 		return "request_too_large (Aristote) : la requête dépasse 1 Mio, la limite de la passerelle.";
 	if (OVERFLOW_PATTERNS.some((re) => re.test(message))) return `context_length_exceeded (Aristote) : ${message}`;
+	if (/timed? ?out|timeout/i.test(message) && !/context/i.test(message))
+		return "Aristote n'a pas répondu à temps (request timed out) : nouvel essai automatique ; si ça persiste, le service est sans doute en panne.";
 	if (/Unknown model|Invalid model name|NotFoundError|\b404\b/i.test(message))
 		return `Aristote : ce modèle n'est plus servi (${message.slice(0, 120)}). Tape /aristote refresh puis /model.`;
 	if (/\b401\b|unauthori[sz]ed|authentication error|invalid (api )?(key|token)/i.test(message))

@@ -44,7 +44,7 @@ export function setLangue(langue: string): void {
 
 export function langueInstruction(fallback = "the user's language"): string {
 	const l = getLangue();
-	return l === "auto" ? `Reply in ${fallback}.` : `Reply in ${LANGUES[l] ?? l}.`;
+	return l === "auto" ? `Reply in ${fallback}.` : `Always reply in ${LANGUES[l] ?? l}, even if the user or the task is in another language.`;
 }
 
 export const HEALTH_TTL_MS = 30 * 60 * 1000;

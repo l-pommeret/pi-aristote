@@ -175,10 +175,10 @@ async function probeReasoning(key: string, id: string): Promise<{ reasoning: boo
 export async function probeModel(key: string, id: string, previous?: ModelProbe): Promise<ModelProbe> {
 	const now = Date.now();
 	try {
-		let r = await http(key, "/chat/completions", { model: id, ...PING });
+		let r = await http(key, "/chat/completions", { model: id, ...PING }, 12_000);
 		for (let attempt = 1; r.status !== 200 && ![401, 403, 404].includes(r.status) && !/Invalid model name/i.test(r.text) && attempt < 3; attempt++) {
 			await new Promise((resolve) => setTimeout(resolve, 1500));
-			r = await http(key, "/chat/completions", { model: id, ...PING });
+			r = await http(key, "/chat/completions", { model: id, ...PING }, 12_000);
 		}
 		if (r.status !== 200) return { ...previous, ok: false, checkedAt: now, error: errorText(r) };
 		const probe: ModelProbe = { ...previous, ok: true, checkedAt: now, error: undefined };

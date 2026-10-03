@@ -5,8 +5,8 @@ import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
-import { langueInstruction, PROVIDER } from "./config.ts";
-import { normalizeRole, type Role, ROLES } from "./lycee.ts";
+import { getLangue, langueInstruction, PROVIDER } from "./config.ts";
+import { normalizeRole, type Role, ROLE_NAMES, roleName, ROLES } from "./lycee.ts";
 import { LISN, rgb, TRUECOLOR } from "./ui.ts";
 
 const TOOL = "agents";
@@ -18,13 +18,13 @@ const OUTPUT_CAP = 8000;
 const ULTRA_PROMPT = `
 
 ULTRACODE: the user wants the team: delegate multi-step work with \`${TOOL}\` (parallel, in your cwd; sub-agents can't see this chat).
-Usual flow: eclaireurs on separate areas, then ouvriers on disjoint files, then a relecteur; architecte for complex plans, redacteur for docs.
+Usual flow: peripateticiens on separate areas, then hephaistos on disjoint files, then socrate; euclide for complex plans, sappho for docs.
 Missions: 1-3 self-contained sentences starting with the relative target path.`;
 
 const Params = Type.Object({
 	tasks: Type.Array(
 		Type.Object({
-			role: StringEnum(["eclaireur", "architecte", "ouvrier", "relecteur", "redacteur"] as const, { description: "eclaireur (Péripatéticien) explores read-only, architecte (Euclide) plans, ouvrier (Héphaïstos) implements, relecteur (Socrate) verifies, redacteur (Sappho) writes docs" }),
+			role: StringEnum(ROLE_NAMES as unknown as readonly ["peripateticien"], { description: "peripateticien explores read-only, euclide plans, hephaistos implements, socrate verifies, sappho writes docs" }),
 			task: Type.String({ description: "Self-contained mission starting with the target path" }),
 			model: Type.Optional(Type.String({ description: "Aristote model id (default: current)" })),
 		}),
@@ -83,7 +83,7 @@ function runAgent(run: AgentRun, cwd: string, thinking: string | undefined, sign
 	const role = ROLES[run.role];
 	const args = ["--mode", "json", "-p", "--no-session", "--model", `${PROVIDER}/${run.model}`, "--tools", role.tools];
 	if (thinking) args.push("--thinking", thinking);
-	args.push("--append-system-prompt", `${role.prompt} ${langueInstruction("the mission's language")}`, `Mission : ${run.task}`);
+	args.push("--append-system-prompt", `${role.prompt} ${langueInstruction("the mission's language")}`, `Mission : ${run.task}${getLangue() === "auto" ? "" : `\n\n${langueInstruction()}`}`);
 
 	return new Promise((resolve) => {
 		run.status = "en cours";
@@ -118,7 +118,7 @@ function runAgent(run: AgentRun, cwd: string, thinking: string | undefined, sign
 				run.tokens += m.usage?.totalTokens ?? 0;
 				const text = (m.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
 				if (text) run.output = text;
-				if (m.stopReason === "error") run.error = m.errorMessage;
+				if (m.stopReason === "error") run.error = /timed? ?out|ETIMEDOUT/i.test(m.errorMessage ?? "") ? "Aristote n'a pas répondu à temps : relance la mission dans un instant." : m.errorMessage;
 				update();
 			}
 		};
@@ -515,7 +515,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 			const tasks = Array.isArray(raw?.tasks) ? raw.tasks : [];
 			return {
 				...raw,
-				tasks: tasks.map((t: any) => ({ ...t, role: normalizeRole(t?.role) ?? t?.role })),
+				tasks: tasks.map((t: any) => ({ ...t, role: roleName(t?.role) ?? t?.role })),
 			};
 		},
 		defaultActive: false,
@@ -631,7 +631,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 				}
 				pi.sendMessage({
 					customType: "aristote-disciple",
-					content: `Compte rendu de ${r.label} (${role}) pour la mission « ${task} » :\n\n${run.output || run.error || "(aucune sortie)"}`,
+					content: `Compte rendu de ${r.label} pour la mission « ${task} » :\n\n${run.output || run.error || "(aucune sortie)"}`,
 					display: true,
 					details: { run },
 				});
@@ -676,7 +676,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 
 	pi.on("before_agent_start", async (event) => {
 		if (!active) return;
-		return { systemPrompt: event.systemPrompt + ULTRA_PROMPT };
+		return { systemPrompt: event.systemPrompt + ULTRA_PROMPT + (getLangue() === "auto" ? "" : `\n${langueInstruction()}`) };
 	});
 
 	pi.on("agent_settled", async (_e, ctx) => {

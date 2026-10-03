@@ -274,7 +274,7 @@ export default async function (pi: ExtensionAPI) {
 				stats: [
 					`session   ${stats.requests} requêtes · ${stats.emptyRetries} réponses vides rattrapées` +
 						(stats.emptyFailures ? ` (${stats.emptyFailures} abandons)` : ""),
-					`garde-fou ${guardStats.announcements} annonces sans outil · ${guardStats.loops} boucles coupées · max_tokens ajusté ${stats.clamped}×`,
+					`garde-fou ${guardStats.announcements} annonces sans outil · ${guardStats.loops} boucles coupées · réponses raccourcies (contexte plein) ${stats.clamped}`,
 				],
 			};
 			if (ctx.mode === "tui") pi.appendEntry("aristote-panel", data);

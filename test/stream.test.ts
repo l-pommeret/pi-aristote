@@ -203,3 +203,9 @@ test("413 de nginx : reconnu comme dépassement, pi compacte", async () => {
 	assert.ok(isContextOverflow(err, model.contextWindow), err.errorMessage);
 	assert.doesNotMatch(err.errorMessage, /<html>/);
 });
+
+test("délai dépassé : message en français, toujours relancé par pi", () => {
+	const m = rewriteError("Request timed out.");
+	assert.match(m, /n'a pas répondu à temps/);
+	assert.ok(isRetryableAssistantError({ stopReason: "error", errorMessage: m } as any));
+});
