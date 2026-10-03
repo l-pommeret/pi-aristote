@@ -17,9 +17,9 @@ const OUTPUT_CAP = 8000;
 
 const ULTRA_PROMPT = `
 
-ULTRACODE: delegate non-trivial work with \`${TOOL}\` (tasks run in parallel; sub-agents can't see this chat).
+ULTRACODE: the user wants the team: delegate multi-step work with \`${TOOL}\` (parallel, in your cwd; sub-agents can't see this chat).
 Usual flow: eclaireurs on separate areas, then ouvriers on disjoint files, then a relecteur; architecte for complex plans, redacteur for docs.
-Missions: 1-3 self-contained sentences starting with the target path.`;
+Missions: 1-3 self-contained sentences starting with the relative target path.`;
 
 const Params = Type.Object({
 	tasks: Type.Array(
@@ -41,6 +41,7 @@ interface AgentRun {
 	tools: number;
 	tokens: number;
 	action?: string;
+	actionAt?: number;
 	output: string;
 	error?: string;
 	startedAt?: number;
@@ -107,7 +108,10 @@ function runAgent(run: AgentRun, cwd: string, thinking: string | undefined, sign
 			if (ev.type === "tool_execution_start") {
 				run.tools++;
 				run.action = describeAction(ev.toolName, ev.args, cwd);
+				run.actionAt = Date.now();
 				update();
+			} else if (ev.type === "tool_execution_end") {
+				run.actionAt = undefined;
 			} else if (ev.type === "message_end" && ev.message?.role === "assistant") {
 				const m = ev.message;
 				run.turns++;
@@ -158,6 +162,11 @@ async function pool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>
 	);
 }
 
+const PENDING: Partial<Record<AgentRun["status"], string>> = {
+	"en cours": "*En promenade : le compte rendu arrivera à son retour.*",
+	attente: "*Attend une place sous le portique.*",
+};
+
 const SPIN = ["◐", "◓", "◑", "◒"];
 const WARM = [255, 244, 214];
 const lerp = (a: number[], b: number[], u: number) => a.map((x, i) => Math.round(x + (b[i] - x) * Math.max(0, Math.min(1, u))));
@@ -185,27 +194,30 @@ const elapsed = (r: AgentRun) => (r.startedAt ? secs((r.endedAt ?? Date.now()) -
 const plural = (n: number, w: string) => (n ? `${n} ${w}${n > 1 ? "s" : ""}` : "");
 const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`);
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
-const brief = (task: string) => {
+export const brief = (task: string) => {
 	const t = oneLine(task)
 		.replace(/\b(?:le projet|le code|le dépôt|tout) (?:est|se trouve) dans \.{1,2}\/?\s*[.,:;]?\s*/gi, "")
 		.replace(/\s*\(?(?:dans|depuis|à partir de) (?:le (?:répertoire|dossier|projet)|ce répertoire)(?: courant)? \.?\/?\)?(?=[\s,.;:])[,;]?/gi, "")
-		.replace(/\s(?:dans|depuis) \.\/?(?=[\s,;:])/g, "")
+		.replace(/(?:^|\s)(?:dans|depuis|in|at) \.\/?(?=[\s,;:)])/gi, "")
 		.replace(/\bcd \.\/? &&\s*/g, "")
 		.replace(/^[\s,.;:]+/, "");
-	return t.charAt(0).toUpperCase() + t.slice(1);
+	const rest = t.replace(/^(?:[\w./-]*\w\.[a-zA-Z]{1,6}\b(?:\s*(?:,|et|and|\+)\s*)?)+\s*(?:[:—–-]\s*)?/, "");
+	const s = rest.length > 8 ? rest : t;
+	return /^\S*[./]/.test(s) ? s : s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-function subject(task: string): string {
+export function subject(task: string): string {
 	const files = [...new Set(task.match(/[\w./-]*\w\.[a-zA-Z]{1,6}\b/g) ?? [])].filter((f) => !/^\d+\.\d+$/.test(f));
 	if (!files.length) return "";
 	return files.length > 2 ? `${files.slice(0, 2).join(", ")} +${files.length - 2}` : files.join(", ");
 }
 
-function gist(output: string): string {
+export function gist(output: string): string {
 	const clean = (l: string) =>
 		l
 			.replace(/^#+\s*|^>\s*|^[-*+]\s+|^\d+[.)]\s+/, "")
 			.replace(/\*\*|__|`/g, "")
+			.replace(/^(?:résumé|summary|verdict|bilan|en bref|conclusion|outcome|résultat)\s*:\s*(?=\S)/i, "")
 			.trim();
 	const items: string[] = [];
 	let code = false;
@@ -216,7 +228,7 @@ function gist(output: string): string {
 			continue;
 		}
 		const l = clean(raw);
-		if (code || l.length < 3 || /^(-{3,}|\|.*\|)$/.test(l) || /^[\w./-]+\.\w{1,6}\s*:?$/.test(l)) continue;
+		if (code || l.length < 3 || /^(-{3,}|\|.*\|)$/.test(l) || /^[\w./-]+\.\w{1,6}\s*(?:\([^)]*\))?\s*:?$/.test(l)) continue;
 		if (/^(compte[- ]rendu|résumé|rapport|synthèse|verdict|résultat|conclusion|analyse|description|proposition)(?=[\s:]|$)[^:]*:?$/i.test(l)) continue;
 		items.push(l);
 	}
@@ -284,7 +296,7 @@ function agentLines(runs: AgentRun[], theme: Theme, width: number): string[] {
 			r.status === "échec" || (r.error && !r.output)
 				? theme.fg("error", oneLine(r.error ?? "échec"))
 				: r.status === "en cours"
-					? theme.fg("muted", r.action ?? "médite sous le portique…")
+					? theme.fg("muted", `${r.action ?? "médite sous le portique…"}${r.actionAt && Date.now() - r.actionAt > 10000 ? ` · depuis ${secs(Date.now() - r.actionAt)}` : ""}`)
 					: r.status === "terminé"
 						? theme.fg("text", gist(r.output) || "(rien à dire, ce qui est déjà une réponse)")
 						: r.status === "annulé"
@@ -345,7 +357,10 @@ function teamFooter(runs: AgentRun[], theme: Theme, width: number): string[] {
 }
 
 class LiveBlock {
-	constructor(private lines: (width: number) => string[]) {}
+	private lines: (width: number) => string[];
+	constructor(lines: (width: number) => string[]) {
+		this.lines = lines;
+	}
 	render(width: number) {
 		return this.lines(width);
 	}
@@ -577,7 +592,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 				);
 				container.addChild(new Text(theme.fg("dim", `Mission : ${oneLine(r.task)}`), 3, 0));
 				container.addChild(new Spacer(1));
-				container.addChild(new Markdown(r.output || r.error || "(aucune sortie)", 3, 0, getMarkdownTheme()));
+				container.addChild(new Markdown(r.output || r.error || PENDING[r.status] || "(aucune sortie)", 3, 0, getMarkdownTheme()));
 			}
 			return container;
 		},

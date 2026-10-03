@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 import { createAssistantMessageEventStream, isContextOverflow, isRetryableAssistantError } from "@earendil-works/pi-ai";
-import { clampMaxTokens, deps, estimateTokens, rewriteError, stats, streamAristote } from "../extensions/aristote/stream.ts";
+import { clampMaxTokens, deps, estimateTokens, fitBody, rewriteError, stats, streamAristote } from "../extensions/aristote/stream.ts";
 
 const model: any = {
 	id: "qwen-3.8-27b",
@@ -51,8 +51,8 @@ const ERROR = (text: string) => [{ type: "error", reason: "error", error: messag
 let calls: any[] = [];
 function script(...responses: (() => any[])[]) {
 	calls = [];
-	deps.streamSimple = ((m: any, _c: any, o: any) => {
-		calls.push({ model: m, options: o });
+	deps.streamSimple = ((m: any, c: any, o: any) => {
+		calls.push({ model: m, context: c, options: o });
 		const events = (responses[calls.length - 1] ?? responses[responses.length - 1])();
 		const s = createAssistantMessageEventStream();
 		queueMicrotask(() => {
@@ -163,4 +163,43 @@ test("une image compte ~1500 tokens, pas la taille de son base64", () => {
 		messages: [{ role: "user", content: [{ type: "image", data: "A".repeat(3_000_000), mimeType: "image/png" }], timestamp: 0 }],
 	};
 	assert.ok(estimateTokens(withImage) < 2000);
+});
+
+test("modèle retiré (400 Invalid model name) : pas confondu avec une clé refusée", () => {
+	const m = rewriteError(
+		'400: {"message":"/chat/completions: Invalid model name passed in model=qwen-x. Call `/v1/models` to view available models for your key."}',
+	);
+	assert.match(m, /n'est plus servi/);
+	assert.doesNotMatch(m, /clé API refusée/);
+});
+
+test("clé invalide renvoyée par la passerelle", () => {
+	assert.match(rewriteError('401: {"message":"Authentication Error, Invalid proxy server token passed."}'), /clé API refusée/);
+	assert.doesNotMatch(rewriteError("context of 140401 tokens exceeds the limit"), /clé API refusée/);
+});
+
+const shot = (kb: number) => ({ type: "image", data: "A".repeat(kb * 1000), mimeType: "image/jpeg" });
+
+test("requête > 1 Mio : les images les plus anciennes sont retirées, la session n'est pas modifiée", async () => {
+	const messages = [1, 2, 3, 4, 5, 6].map((i) => ({ role: "toolResult", toolCallId: `c${i}`, toolName: "browser", content: [{ type: "text", text: `page ${i}` }, shot(240)], isError: false, timestamp: 0 }));
+	const ctx: any = { ...context, messages };
+	script(() => TEXT("ok"));
+	for await (const _ of streamAristote(model, ctx, {}));
+	const sent = calls[0].context;
+	assert.ok(Buffer.byteLength(JSON.stringify(sent)) <= 1_000_000);
+	const kept = sent.messages.map((m: any) => m.content[1].type);
+	assert.deepEqual(kept, ["text", "text", "image", "image", "image", "image"]);
+	assert.equal(messages[0].content[1].type, "image", "l'historique d'origine garde ses images");
+});
+
+test("requête raisonnable : contexte transmis tel quel", () => {
+	const ctx: any = { ...context, messages: [{ role: "user", content: [shot(200)], timestamp: 0 }] };
+	assert.equal(fitBody(ctx), ctx);
+});
+
+test("413 de nginx : reconnu comme dépassement, pi compacte", async () => {
+	script(() => ERROR("413 <html><head><title>413 Request Entity Too Large</title></head></html>"));
+	const err = (await run()).at(-1).error;
+	assert.ok(isContextOverflow(err, model.contextWindow), err.errorMessage);
+	assert.doesNotMatch(err.errorMessage, /<html>/);
 });

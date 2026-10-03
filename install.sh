@@ -129,6 +129,7 @@ say "Téléchargement de l'extension Aristote…"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 curl -fsSL "$SITE/pi-aristote.tar.gz" -o "$tmp/ext.tgz" || die "Téléchargement de l'extension impossible ($SITE)."
+tar -tzf "$tmp/ext.tgz" 2>/dev/null | grep -q '^extensions/aristote/index.ts$' || die "Archive de l'extension invalide ($SITE)."
 mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/themes"
 rm -rf "$AGENT_DIR/extensions/aristote"
 tar -xzf "$tmp/ext.tgz" -C "$AGENT_DIR"
@@ -149,9 +150,10 @@ const load = (name) => {
 const save = (f, mode) => {
 	if (fs.existsSync(f.p)) {
 		const b = path.join(dir, "backups");
-		fs.mkdirSync(b, { recursive: true });
+		fs.mkdirSync(b, { recursive: true, mode: 0o700 });
 		const dst = path.join(b, `${path.basename(f.p)}.${stamp}`);
 		fs.copyFileSync(f.p, dst);
+		fs.chmodSync(dst, 0o600);
 		console.log(dst);
 	}
 	fs.writeFileSync(f.p, JSON.stringify(f.data, null, 2) + "\n", mode ? { mode } : undefined);

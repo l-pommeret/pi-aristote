@@ -176,7 +176,7 @@ export async function probeModel(key: string, id: string, previous?: ModelProbe)
 	const now = Date.now();
 	try {
 		let r = await http(key, "/chat/completions", { model: id, ...PING });
-		for (let attempt = 1; r.status !== 200 && r.status !== 404 && attempt < 3; attempt++) {
+		for (let attempt = 1; r.status !== 200 && ![401, 403, 404].includes(r.status) && !/Invalid model name/i.test(r.text) && attempt < 3; attempt++) {
 			await new Promise((resolve) => setTimeout(resolve, 1500));
 			r = await http(key, "/chat/completions", { model: id, ...PING });
 		}

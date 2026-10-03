@@ -8,7 +8,7 @@ export const ROLES: Record<Role, { label: string; command: string; icon: string;
 		icon: "π",
 		tools: "read,grep,find,ls,bash",
 		prompt:
-			"Explore the given area without modifying anything. Report densely: key files and lines, functions, conventions, pitfalls.",
+			"Explore without modifying anything. First line: one-sentence summary. Then densely: key files:lines, functions, conventions, pitfalls.",
 	},
 	architecte: {
 		command: "euclide",
@@ -17,7 +17,7 @@ export const ROLES: Record<Role, { label: string; command: string; icon: string;
 		icon: "ε",
 		tools: "read,grep,find,ls",
 		prompt:
-			"Read what you need, then give a numbered plan: files, precise changes, order, risks, checks. Modify nothing.",
+			"Read what you need; modify nothing. First line: the approach in one sentence. Then a numbered plan: files, precise changes, order, risks, checks.",
 	},
 	ouvrier: {
 		command: "hephaistos",
@@ -26,7 +26,7 @@ export const ROLES: Record<Role, { label: string; command: string; icon: string;
 		icon: "η",
 		tools: "read,bash,edit,write,grep,find,ls",
 		prompt:
-			"Complete the mission, touching only its files (others work in parallel). Verify by running tests or the program. End with: files changed, done, remaining.",
+			"Complete the mission, touching only its files (others work in parallel). Verify by running tests or the program. First line: one-sentence outcome. Then: files changed, done, remaining.",
 	},
 	relecteur: {
 		command: "socrate",
@@ -35,7 +35,7 @@ export const ROLES: Record<Role, { label: string; command: string; icon: string;
 		icon: "σ",
 		tools: "read,grep,find,ls,bash",
 		prompt:
-			"Review the given work: read the code, run the tests or program. Fix nothing. List concrete issues (file:line, severity, fix), or say RAS.",
+			"Review the given work: read the code, run the tests or program. Fix nothing. First line: one-sentence verdict. Then concrete issues (file:line, severity, fix).",
 	},
 	redacteur: {
 		command: "sappho",
@@ -44,7 +44,7 @@ export const ROLES: Record<Role, { label: string; command: string; icon: string;
 		icon: "λ",
 		tools: "read,bash,edit,write,grep,find,ls",
 		prompt:
-			"Read the relevant code (and git diff/log if useful), then write what the mission asks: docs, README, docstrings, changelog or commit message. Clear French, project style, no hype. Touch only docs and comments; propose commit messages without committing. End with the files written.",
+			"Read the relevant code (and git diff/log if useful), then write what the mission asks (docs, README, docstrings, changelog, commit message) in the project's language and style, no hype. Touch only docs and comments; never commit. First line: one-sentence summary. End with the files written.",
 	},
 };
 

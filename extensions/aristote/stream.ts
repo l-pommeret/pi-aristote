@@ -47,6 +47,26 @@ export function estimateTokens(context: Context): number {
 	return Math.ceil(chars / 3);
 }
 
+// nginx devant la passerelle refuse les requêtes de plus de 1 Mio (413) : les images les plus anciennes sautent d'abord.
+const MAX_BODY = 1_000_000;
+const IMAGE_DROPPED = "[image removed: request size limit]";
+
+export function fitBody(context: Context): Context {
+	let size = Buffer.byteLength(JSON.stringify(context));
+	if (size <= MAX_BODY) return context;
+	const messages = (context.messages as any[]).map((m) => (Array.isArray(m.content) ? { ...m, content: [...m.content] } : m));
+	for (const m of messages) {
+		if (!Array.isArray(m.content)) continue;
+		for (let i = 0; i < m.content.length && size > MAX_BODY; i++) {
+			const b = m.content[i];
+			if (b?.type !== "image") continue;
+			size -= b.data?.length ?? 0;
+			m.content[i] = { type: "text", text: IMAGE_DROPPED };
+		}
+	}
+	return { ...context, messages };
+}
+
 export function clampMaxTokens(model: Model<Api>, context: Context, requested?: number): number {
 	const wanted = requested ?? model.maxTokens;
 	const room = model.contextWindow - estimateTokens(context) - CONTEXT_MARGIN;
@@ -64,10 +84,12 @@ const OVERFLOW_PATTERNS = [
 
 export function rewriteError(message: string): string {
 	if (message.includes("context_length_exceeded")) return message;
+	if (/\b413\b|Request Entity Too Large/i.test(message))
+		return "request_too_large (Aristote) : la requête dépasse 1 Mio, la limite de la passerelle.";
 	if (OVERFLOW_PATTERNS.some((re) => re.test(message))) return `context_length_exceeded (Aristote) : ${message}`;
-	if (/Unknown model|NotFoundError|404/i.test(message))
+	if (/Unknown model|Invalid model name|NotFoundError|\b404\b/i.test(message))
 		return `Aristote : ce modèle n'est plus servi (${message.slice(0, 120)}). Tape /aristote refresh puis /model.`;
-	if (/401|unauthori[sz]ed|invalid.*(key|token)/i.test(message))
+	if (/\b401\b|unauthori[sz]ed|authentication error|invalid (api )?(key|token)/i.test(message))
 		return `Aristote : clé API refusée. Récupère ta clé sur https://aristote.education/llm-access/ puis tape /aristote key sk-… (${message.slice(0, 80)})`;
 	return message;
 }
@@ -95,6 +117,7 @@ export function streamAristote(
 	const out = createAssistantMessageEventStream();
 
 	(async () => {
+		context = fitBody(context);
 		const maxTokens = clampMaxTokens(model, context, options?.maxTokens);
 		const inner = { ...model, api: "openai-completions", maxTokens } as Model<Api>;
 		const opts: SimpleStreamOptions = { ...options, maxTokens };

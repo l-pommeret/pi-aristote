@@ -26,7 +26,7 @@ import { installNavigateur } from "./navigateur.ts";
 import { installUltracode } from "./ultracode.ts";
 
 const SUBAGENT = Boolean(process.env.ARISTOTE_SUBAGENT);
-const SITE = "https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote";
+const SITE = (process.env.PI_ARISTOTE_SITE ?? "https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote").replace(/\/+$/, "");
 const HERE = dirname(fileURLToPath(import.meta.url));
 const localVersion = () => {
 	try {
@@ -182,7 +182,7 @@ export default async function (pi: ExtensionAPI) {
 	const update = async (ctx: any) => {
 		const before = localVersion();
 		ctx.ui.notify(`Recherche d'une mise à jour (version actuelle : ${before})…`, "info");
-		const r = await pi.exec("sh", ["-c", `curl -fsSL ${SITE}/install.sh | PI_ARISTOTE_AUTO=1 sh`]);
+		const r = await pi.exec("sh", ["-c", 'i="$(curl -fsSL "$1/install.sh")" && printf "%s\\n" "$i" | PI_ARISTOTE_AUTO=1 sh', "sh", SITE]);
 		if (r.code !== 0) return ctx.ui.notify(`Échec de la mise à jour :\n${(r.stderr || r.stdout).slice(-400)}`, "error");
 		const after = localVersion();
 		if (after === before) return ctx.ui.notify(`L'extension Aristote est déjà à jour (${after}).`, "info");
@@ -231,7 +231,11 @@ export default async function (pi: ExtensionAPI) {
 			if (sub === "key") {
 				if (!value?.startsWith("sk-"))
 					return ctx.ui.notify("Usage : /aristote key sk-…  (ta clé est sur https://aristote.education/llm-access/)", "warning");
-				saveApiKey(value);
+				try {
+					saveApiKey(value);
+				} catch (e) {
+					return ctx.ui.notify(String(e instanceof Error ? e.message : e), "error");
+				}
 				({ key, source: keySource } = resolveApiKey());
 				register();
 				ctx.ui.notify("Clé enregistrée dans auth.json, vérification…", "info");

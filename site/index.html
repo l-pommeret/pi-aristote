@@ -189,6 +189,8 @@ details[open] summary::before { content: "−"; }
 details[open] { border-color: rgba(91, 184, 206, .4); }
 details > *:not(summary) { margin-left: 26px; }
 details p, details li { color: var(--doux); font-size: 15px; }
+details a { color: var(--sarcelle-clair); }
+details kbd { font: 12px "JetBrains Mono", monospace; background: #0d0e28; border: 1px solid var(--marine-3); border-radius: 5px; padding: 1px 6px; color: var(--texte); }
 details code, p code { font: 13px "JetBrains Mono", monospace; background: #0d0e28; padding: 2px 6px; border-radius: 5px; color: var(--texte); }
 
 footer { padding: 48px 0 60px; color: var(--doux); font-size: 14px; }
@@ -240,16 +242,19 @@ footer a { color: var(--sarcelle-clair); }
 			</div>
 			<div class="fenetre" aria-hidden="true">
 				<div class="barre"><i></i><i></i><i></i><span>pi — mon-projet</span></div>
-<pre><span class="j">Α</span> <b>ARISTOTE</b> <span class="d">· qwen-3.8-27b · 256k</span>
+<pre><span class="j">Α</span> <b>ARISTOTE</b> <span class="d">· qwen-3.8-27b · 262k tokens</span>
 
 <span class="s">›</span> ajoute la pagination à /users et teste
 
-<span class="j">Ω</span> Ultracode <span class="d">· 3 disciples en promenade</span>
-<span class="v">✓</span> <span class="s">π Péripatéticien</span> explore src/api  <span class="d">6s</span>
-<span class="v">✓</span> <span class="o">η Héphaïstos</span>     édite users.py   <span class="d">9s</span>
-<span class="j spin">α</span> <span class="j">σ Socrate</span>        lance les tests  <span class="d">4s</span>
-
-<span class="d">─ δ Socrate pose encore une question… ─</span></pre>
+<span class="j">Ω Ultracode</span> <span class="d">· le Lycée envoie</span> 1 <span class="s">π</span> Péripatéticien<span class="d">,</span>
+  1 <span class="o">η</span> Héphaïstos<span class="d">,</span> 1 <span class="j">σ</span> Socrate <span class="d">en promenade</span>
+ <span class="v">✓</span> <span class="s">π Péripatéticien</span>  <span class="d">6s</span>  src/api
+   <span class="d">╰</span> 4 routes, pas de pagination
+ <span class="v">✓</span> <span class="o">η Héphaïstos</span>      <span class="d">9s</span>  users.py
+   <span class="d">╰</span> pagination ajoutée, 3 tests
+ <span class="j spin">◐</span> <span class="j">σ Socrate</span>         <span class="d">4s</span>  tests/
+   <span class="o">↳</span> <span class="d">$ pytest -q</span>
+ <span class="s">━━</span> <span class="o">━━</span> <span class="j">━━</span>  2/3 revenus <span class="d">· 19s</span></pre>
 			</div>
 		</div>
 
@@ -277,7 +282,7 @@ footer a { color: var(--sarcelle-clair); }
 						<button type="button" role="tab" data-os="win" aria-selected="false">Windows</button>
 					</div>
 				</div>
-				<p class="hint avant" data-for="win" hidden>Dans <strong style="color:var(--texte)">PowerShell</strong>. Première fois&nbsp;? Installe d'abord WSL avec <code>wsl --install</code>, redémarre, puis colle&nbsp;:</p>
+				<p class="hint avant" data-for="win" hidden>Dans <strong style="color:var(--texte)">PowerShell</strong>. Première fois&nbsp;? Installe d'abord WSL&nbsp;: <code>wsl --install</code> dans un PowerShell ouvert en administrateur, redémarre, et choisis ton nom d'utilisateur Linux dans la fenêtre Ubuntu qui s'ouvre. Ensuite, colle&nbsp;:</p>
 				<div class="cmd">
 					<code id="cmd"><span class="p">$ </span>curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh</code>
 					<button class="copy" id="copy" type="button">Copier</button>
@@ -304,13 +309,13 @@ footer a { color: var(--sarcelle-clair); }
 			<div class="card"><h3><span class="ico">μ</span>Modèles toujours à jour</h3><p>La liste vient d'Aristote à chaque lancement. Les nouveaux modèles sont mesurés automatiquement, les modèles en panne masqués.</p></div>
 			<div class="card"><h3><span class="ico">Φ</span>Garde-fou anti-boucle</h3><p>Le modèle annonce une action sans la faire, ou se répète&nbsp;? Il est coupé et remis sur le droit chemin.</p></div>
 			<div class="card"><h3><span class="ico">κ</span>Contexte maîtrisé</h3><p>La taille des réponses s'adapte à la place restante&nbsp;: fini les erreurs 500 incompréhensibles en fin de session.</p></div>
-			<div class="card"><h3><span class="ico">θ</span>Il voit le web</h3><p>Une fenêtre de navigateur s'ouvre et tu vois le curseur du modèle chercher, cliquer, écrire. Il regarde les pages en capture, et voit aussi tes images.</p></div>
+			<div class="card"><h3><span class="ico">θ</span>Il voit le web</h3><p>Demande-lui de chercher&nbsp;: une fenêtre de navigateur s'ouvre et tu suis son curseur «&nbsp;α Aristote&nbsp;» chercher, cliquer, écrire. Il avance par clics, sans inventer d'adresse, refuse les cookies superflus et s'arrête devant un CAPTCHA. Il voit aussi tes images.</p></div>
 			<div class="card"><h3><span class="ico">Δ</span>Toujours à jour</h3><p>pi te prévient au démarrage quand une nouvelle version sort&nbsp;; <code>/maj</code> l'installe en quelques secondes, sans quitter pi.</p></div>
 		</div>
 	</section>
 
 	<section>
-		<h2>Ω Mode Ultracode <small><kbd style="font:12px 'JetBrains Mono';background:#1c1e4a;border:1px solid #262966;border-radius:5px;padding:1px 6px">Alt U</kbd>, <code>/ultracode</code>, ou le mot «&nbsp;ultracode&nbsp;» dans ta demande&nbsp;: le Lycée entre en session.</small></h2>
+		<h2>Ω Mode Ultracode <small><kbd style="font:12px 'JetBrains Mono';background:#1c1e4a;border:1px solid #262966;border-radius:5px;padding:1px 6px">Alt U</kbd>, <code>/ultracode</code>, ou le mot «&nbsp;ultracode&nbsp;» dans ta demande&nbsp;: le Lycée entre en session. Sur Mac, <kbd style="font:12px 'JetBrains Mono';background:#1c1e4a;border:1px solid #262966;border-radius:5px;padding:1px 6px">⌥ U</kbd> ne marche que si Option sert de touche Méta dans ton terminal&nbsp;; sinon, <code>/ultracode</code>.</small></h2>
 		<div class="lycee">
 			<div class="disciple"><div class="g">π</div><b>Péripatéticien</b><code>/peripateticien</code><p>Explore le code en se promenant, sans rien toucher.</p></div>
 			<div class="disciple"><div class="g">ε</div><b>Euclide</b><code>/euclide</code><p>Trace le plan d'implémentation.</p></div>
@@ -319,15 +324,17 @@ footer a { color: var(--sarcelle-clair); }
 			<div class="disciple"><div class="g">λ</div><b>Sappho</b><code>/sappho</code><p>Écrit la doc, les README et les messages de commit.</p></div>
 		</div>
 		<p class="hint">Chaque disciple est un vrai processus pi, avec son propre contexte. Ils travaillent en parallèle, puis le modèle principal fait la synthèse.</p>
-<div class="term"><span class="j">Ω</span> Ultracode <span class="d">· 4 disciples du Lycée partent en promenade</span>
-<span class="v">✓</span> <span class="d">1.</span> <span class="s">π Péripatéticien</span>  Explore src/api et résume les routes
-    <span class="d">qwen-3.8-27b · 7s · 2 tours · 3 outils</span>  ## Routes de l'API…
-<span class="j">γ</span> <span class="d">2.</span> <span class="s">π Péripatéticien</span>  Explore les tests et la CI
-    <span class="d">qwen-3.8-27b · 5s · 1 tour · 2 outils</span>  <span class="d">→ lecture .gitlab-ci.yml</span>
-<span class="j">ζ</span> <span class="d">3.</span> <span class="o">η Héphaïstos</span>  Ajoute la pagination à /users
-    <span class="d">qwen-3.8-27b · 4s · 1 tour · 1 outil</span>  <span class="d">→ édition src/api/users.py</span>
-<span class="d">○</span> <span class="d">4.</span> <span class="j">σ Socrate</span>  Lance la suite de tests et relis le diff
-<span class="d">── η Diogène cherche un humain… et un bug ──</span></div>
+<div class="term"><span class="j">Ω Ultracode</span> <span class="d">· le Lycée envoie</span> 2 <span class="s">π</span> Péripatéticiens<span class="d">,</span> 1 <span class="o">η</span> Héphaïstos<span class="d">,</span> 1 <span class="j">σ</span> Socrate <span class="d">en promenade</span>
+ <span class="v">✓</span> <span class="s">π Péripatéticien</span>  <span class="d">33s</span>  src/api <span class="d">· Résume les routes et leurs paramètres</span>
+   <span class="d">╰</span> 4 routes ; /users renvoie tout, sans pagination            <span class="d">9 outils · 11.6k tok</span>
+ <span class="v">✓</span> <span class="s">π Péripatéticien</span>  <span class="d">21s</span>  .gitlab-ci.yml <span class="d">· Comment la CI lance les tests</span>
+   <span class="d">╰</span> pytest -q dans l'image python:3.12, rien d'autre           <span class="d">4 outils · 6.1k tok</span>
+ <span class="j">◐</span> <span class="o">η Héphaïstos</span>      <span class="d">41s</span>  src/api/users.py <span class="d">· Ajoute ?page et ?size</span>
+   <span class="o">↳</span> <span class="d">$ pytest -q tests/test_users.py · depuis 12s</span>               <span class="d">5 outils · 10.3k tok</span>
+ <span class="d">○</span> <span class="j">σ Socrate</span>         <span class="d">    tests/ · Relis le diff et lance toute la suite</span>
+   <span class="d">╰ attend une place sous le portique</span>
+
+ <span class="s">━━</span> <span class="s">━━</span> <span class="o">━━</span> <span class="d">──</span>  2/4 revenus <span class="d">· 41s · 18 outils · 28.0k tok</span></div>
 	</section>
 
 	<section>
@@ -337,13 +344,22 @@ footer a { color: var(--sarcelle-clair); }
 		<details><summary>Et sous Windows&nbsp;?</summary><p>Ça passe par WSL (un Linux intégré à Windows). Le site détecte Windows et affiche la bonne commande, à coller dans PowerShell&nbsp;; si WSL n'est pas encore installé, commence par <code>wsl --install</code> et redémarre. Ensuite, tape <code>wsl</code> puis <code>pi</code>.</p></details>
 		<details><summary>J'utilise déjà d'autres fournisseurs avec pi</summary><p>Aucun souci&nbsp;: l'installateur ne change ni ton fournisseur par défaut ni ta configuration sans te le demander (réponse par défaut&nbsp;: non), sauvegarde chaque fichier avant de le modifier dans <code>~/.pi/agent/backups/</code>, et ne touche pas à un fichier qu'il ne sait pas lire. Les mises à jour (<code>/maj</code>) ne remplacent que l'extension.</p></details>
 		<details><summary>Le modèle peut-il répondre dans une autre langue&nbsp;?</summary><p>Oui&nbsp;: par défaut, il répond dans la langue dans laquelle tu lui écris. Pour en imposer une, tape <code>/langue en</code>, <code>/langue es</code>… et <code>/langue auto</code> pour revenir au comportement par défaut.</p></details>
+		<details><summary>Quelles commandes dans pi&nbsp;?</summary>
+			<ul>
+				<li><code>/ultracode</code> (ou <kbd>Alt U</kbd>)&nbsp;: le Lycée au complet&nbsp;; <code>/peripateticien</code>, <code>/euclide</code>, <code>/hephaistos</code>, <code>/socrate</code>, <code>/sappho</code>&nbsp;: un disciple seul, suivi d'une mission&nbsp;;</li>
+				<li><code>/langue</code>&nbsp;: langue des réponses&nbsp;; <code>/aristote</code>&nbsp;: état des modèles et de la clé&nbsp;; <code>/maj</code>&nbsp;: mise à jour&nbsp;;</li>
+				<li><code>/clear</code>&nbsp;: repartir de zéro&nbsp;; <code>/exit</code>&nbsp;: quitter. <kbd>Échap</kbd> interrompt, <kbd>Ctrl O</kbd> déplie les comptes rendus, <kbd>Ctrl L</kbd> change de modèle.</li>
+			</ul>
+			<p>Pas de commande pour le navigateur&nbsp;: demande simplement «&nbsp;cherche sur le web…&nbsp;».</p>
+		</details>
 		<details><summary>Qu'est-ce qui est installé, et où&nbsp;?</summary>
 			<ul>
 				<li>pi, via npm (dans ton Node.js, ou dans <code>~/.local/share/pi-aristote/node</code> s'il a fallu en installer un)&nbsp;;</li>
 				<li>l'extension dans <code>~/.pi/agent/extensions/aristote</code> et le thème dans <code>~/.pi/agent/themes</code> ;</li>
-				<li>ta clé dans <code>~/.pi/agent/auth.json</code> (lisible par toi seul).</li>
+				<li>ta clé dans <code>~/.pi/agent/auth.json</code> (lisible par toi seul)&nbsp;;</li>
+				<li>au premier usage du navigateur, <code>playwright-core</code> et un profil de navigation dédié dans <code>~/.pi/agent/aristote-navigateur</code> (ton navigateur habituel n'est pas touché).</li>
 			</ul>
-			<p>Pour tout désinstaller&nbsp;: <code>rm -rf ~/.pi/agent/extensions/aristote</code>, puis <code>npm uninstall -g @earendil-works/pi-coding-agent</code> si tu veux aussi retirer pi.</p>
+			<p>Pour tout désinstaller&nbsp;: <code>rm -rf ~/.pi/agent/extensions/aristote ~/.pi/agent/aristote-navigateur</code>, puis <code>npm uninstall -g @earendil-works/pi-coding-agent</code> si tu veux aussi retirer pi.</p>
 		</details>
 		<details><summary>Je veux lire le code avant de l'exécuter</summary><p>Très bonne idée&nbsp;: <a href="install.sh">install.sh</a> et le <a href="https://gitlab.lisn.upsaclay.fr/vibe-coding/pi-aristote">dépôt GitLab</a>. Tu peux aussi télécharger l'extension seule&nbsp;: <a href="pi-aristote.tar.gz">pi-aristote.tar.gz</a>.</p></details>
 	</section>
@@ -386,7 +402,7 @@ btn.addEventListener("click", async () => {
 	setTimeout(() => { btn.textContent = "Copier"; btn.classList.remove("done"); }, 1800);
 });
 const spin = document.querySelector(".spin");
-const lettres = "αβγδεζηθικλμ";
+const lettres = "◐◓◑◒";
 let k = 0;
 if (spin && !matchMedia("(prefers-reduced-motion: reduce)").matches) setInterval(() => { spin.textContent = lettres[k++ % lettres.length]; }, 120);
 </script>

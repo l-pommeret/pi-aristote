@@ -62,9 +62,13 @@ export function resolveApiKey(): { key?: string; source: string } {
 
 export function saveApiKey(key: string): void {
 	let auth: Record<string, unknown> = {};
-	try {
-		auth = JSON.parse(readFileSync(AUTH_FILE, "utf8"));
-	} catch {}
+	if (existsSync(AUTH_FILE)) {
+		try {
+			auth = JSON.parse(readFileSync(AUTH_FILE, "utf8"));
+		} catch {
+			throw new Error(`${AUTH_FILE} est illisible (JSON invalide) : je n'y touche pas. Corrige-le, ou lance pi avec ARISTOTE_API_KEY=sk-…`);
+		}
+	}
 	auth[PROVIDER] = { type: "api_key", key };
 	writeJsonAtomic(AUTH_FILE, auth);
 	chmodSync(AUTH_FILE, 0o600);

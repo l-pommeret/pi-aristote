@@ -93,7 +93,7 @@ export interface HeaderInfo {
 	ultra?: boolean;
 }
 
-const fmtCtx = (n: number) => (n >= 1024 ? `${Math.round(n / 1024)}k` : `${n}`);
+const fmtCtx = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
 
 function section(title: string, width: number, theme: Theme): string {
 	const rule = Math.max(0, Math.min(width, 82) - 5 - visibleWidth(title));
@@ -138,17 +138,18 @@ function headerLines(width: number, theme: Theme, ctx: ExtensionContext, info: H
 	return lines.map((l) => truncateToWidth(l, width));
 }
 
-const HINTS: [string, string][] = [["Échap", "interrompre"], ["Alt+U", "Lycée"], ["Ctrl+L", "modèle"], ["Maj+Tab", "réflexion"], ["Ctrl+O", "déplier"], ["/clear", "repartir de zéro"], ["/exit", "quitter"]];
+const HINTS: [string, string][] = [["Échap", "interrompre"], ["Alt+U", "Ultracode"], ["Ctrl+L", "modèle"], ["Maj+Tab", "réflexion"], ["Ctrl+O", "déplier"], ["/clear", "repartir de zéro"], ["/exit", "quitter"]];
 
 function hintLines(width: number, theme: Theme): string[] {
 	const items = HINTS.map(([k, v]) => `${theme.fg("muted", k)} ${theme.fg("dim", v)}`);
-	return wrapItems(items, width - 4, "   ").map((l) => `  ${l}`);
+	return balanced(items, width - 4, "   ").map((l) => `  ${l}`);
 }
 
 function commandRows(): [number, string, string, string, string][] {
 	return [
 		[0, "Ω", "/ultracode", "Le Lycée", "entre en session, tous les disciples en parallèle"],
 		...Object.values(ROLES).map((r) => [1, r.icon, `/${r.command}`, r.label, r.summary] as [number, string, string, string, string]),
+		[0, "θ", "« cherche… »", "Navigateur", "demande une recherche web : tu suis son curseur"],
 		[0, "Γ", "/langue", "Langue", "des réponses : auto, fr, en, es…"],
 		[0, "Δ", "/maj", "Mise à jour", "de l'extension Aristote"],
 		[0, "Α", "/aristote", "État", "des modèles et de la clé API"],
@@ -160,23 +161,32 @@ function commandLines(width: number, theme: Theme): string[] | undefined {
 	const col = Math.max(...rows.map(([d, , c]) => d * 2 + c.length)) + 3;
 	const lines = rows.map(
 		([depth, icon, cmd, who, what]) =>
-			`  ${" ".repeat(depth * 2)}${gold(icon, theme)} ${theme.fg("toolTitle", cmd.padEnd(col - depth * 2))}${theme.fg("text", who)} ${theme.fg("muted", what)}`,
+			`  ${" ".repeat(depth * 2)}${gold(icon, theme)} ${theme.fg(cmd.startsWith("/") ? "toolTitle" : "muted", cmd.padEnd(col - depth * 2))}${theme.fg("text", who)} ${theme.fg("muted", what)}`,
 	);
 	if (lines.some((l) => visibleWidth(l) > width)) return undefined;
 	return [section("Commandes", width, theme), ...lines];
 }
 
 function commandGrid(width: number, theme: Theme): string[] {
-	const rows = commandRows();
-	const cell = Math.max(...rows.map(([, , c]) => c.length)) + 5;
+	const rows = commandRows().map(([d, i, c, w, x]) => [d, i, c.startsWith("/") ? c : "navigateur", w, x] as const);
+	const cell = Math.max(...rows.map(([, , c]) => c.length)) + 4;
 	const cols = Math.max(1, Math.floor((Math.min(width, 84) - 2) / cell));
 	const lines: string[] = [];
 	rows.forEach(([, icon, cmd], i) => {
-		const item = `${gold(icon, theme)} ${theme.fg("toolTitle", cmd)}${" ".repeat(cell - 2 - cmd.length)}`;
+		const item = `${gold(icon, theme)} ${theme.fg(cmd.startsWith("/") ? "toolTitle" : "muted", cmd)}${" ".repeat(cell - 2 - cmd.length)}`;
 		if (i % cols === 0) lines.push(`  ${item}`);
 		else lines[lines.length - 1] += item;
 	});
 	return [section("Commandes", width, theme), ...lines];
+}
+
+function balanced(items: string[], width: number, glue: string): string[] {
+	const n = wrapItems(items, width, glue).length;
+	for (let w = Math.ceil(visibleWidth(items.join(glue)) / n); w < width; w++) {
+		const lines = wrapItems(items, w, glue);
+		if (lines.length === n) return lines;
+	}
+	return wrapItems(items, width, glue);
 }
 
 function wrapItems(items: string[], width: number, glue: string): string[] {
