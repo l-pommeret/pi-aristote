@@ -604,7 +604,7 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 			description: `${r.icon} ${r.label} : ${r.summary}`,
 			handler: async (args, ctx) => {
 				const task = args.trim();
-				if (!task) return ctx.ui.notify(`Usage : /${command} <mission>   ${r.icon} ${r.label} — ${r.summary}`, "warning");
+				if (!task) return ctx.ui.notify(`${r.icon} ${r.label} ${r.summary}. Confie-lui une mission : /${command} <mission>`, "info");
 				const models = visibleModels();
 				const run: AgentRun = {
 					role,
@@ -676,7 +676,17 @@ export function installUltracode(pi: ExtensionAPI, visibleModels: () => string[]
 
 	pi.on("before_agent_start", async (event) => {
 		if (!active) return;
-		return { systemPrompt: event.systemPrompt + ULTRA_PROMPT + (getLangue() === "auto" ? "" : `\n${langueInstruction()}`) };
+		return { systemPrompt: event.systemPrompt + ULTRA_PROMPT };
+	});
+
+	pi.on("context", async (event: any) => {
+		if (!active || getLangue() === "auto") return;
+		const note = `(${langueInstruction()})`;
+		return {
+			messages: event.messages.map((m: any) =>
+				m.role !== "user" ? m : { ...m, content: typeof m.content === "string" ? `${m.content}\n\n${note}` : [...m.content, { type: "text", text: note }] },
+			),
+		};
 	});
 
 	pi.on("agent_settled", async (_e, ctx) => {

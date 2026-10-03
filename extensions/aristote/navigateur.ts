@@ -27,6 +27,22 @@ const Params = Type.Object({
 	y: Type.Optional(Type.Number()),
 });
 
+const ACTIONS: Record<string, string> = {
+	websearch: "search",
+	find: "search",
+	navigate: "open",
+	goto: "open",
+	visit: "open",
+	snapshot: "screenshot",
+	look: "screenshot",
+	gettext: "read",
+	readpage: "read",
+	tap: "click",
+	fill: "type",
+	input: "type",
+	goback: "back",
+};
+
 function run(cmd: string, args: string[], cwd?: string): Promise<void> {
 	return new Promise((resolve, reject) =>
 		execFile(cmd, args, { cwd, timeout: 600_000 }, (err, _out, stderr) =>
@@ -352,6 +368,13 @@ export function installNavigateur(pi: ExtensionAPI) {
 		description:
 			"Web browser the user can watch. Navigate by search and click [n]; open only urls given by the user. Cite only pages you actually read.",
 		parameters: Params,
+		prepareArguments: (raw: any) => {
+			if (!raw || typeof raw !== "object") return raw;
+			const a = String(raw.action ?? "").trim().toLowerCase().replace(/[^a-z]/g, "");
+			const action = ACTIONS[a] ?? a;
+			const text = raw.text ?? raw.query ?? raw.q;
+			return { ...raw, action, ...(text !== undefined ? { text } : {}) };
+		},
 		executionMode: "sequential",
 
 		async execute(_id, params, signal, onUpdate, ctx) {
@@ -362,6 +385,7 @@ export function installNavigateur(pi: ExtensionAPI) {
 			signal?.addEventListener("abort", () => say(s, " interrompu").catch(() => {}), { once: true });
 			let out: { title?: string; url?: string; text: string };
 
+			if (params.action === "open" && !params.url && (params.target || params.x !== undefined)) params.action = "click";
 			switch (params.action) {
 				case "search": {
 					const q = params.text ?? params.target ?? params.url;
@@ -402,6 +426,22 @@ export function installNavigateur(pi: ExtensionAPI) {
 							],
 							details: { action: "open", title: "adresse inventée refusée", url },
 						};
+					const onPage: number = await page
+						.evaluate(
+							`(() => { const want = ${JSON.stringify(norm(url))}; const n = (u) => { try { const x = new URL(u); x.hash = ""; return x.host.replace(/^www\\./, "") + x.pathname.replace(/\\/+$/, "") + x.search; } catch { return u; } }; const a = [...document.querySelectorAll("a[href]")].find((e) => n(e.href) === want && e.getBoundingClientRect().width > 1); if (!a) return 0; a.removeAttribute("target"); a.setAttribute("data-pi-open", "1"); return 1; })()`,
+						)
+						.catch(() => 0);
+					if (onPage) {
+						const el = page.locator('[data-pi-open="1"]').first();
+						const label = ((await el.innerText({ timeout: 3_000 }).catch(() => "")) || url).replace(/\s+/g, " ").trim().slice(0, 60);
+						await say(s, ` clique sur « ${label} »`);
+						await click(s, el);
+						await settle(page);
+						if (s.page !== page) await settle(s.page);
+						out = await state(s.page, 3000);
+						if (await blocked(s.page)) out.text += BLOCKED_NOTE;
+						break;
+					}
 					await say(s, ` ouvre ${url}`);
 					const slow = await go(page, url);
 					if (slow) await rejectCookies(page);
@@ -528,7 +568,14 @@ export function installNavigateur(pi: ExtensionAPI) {
 		renderResult(result: any, { isPartial }, theme: Theme) {
 			const d = result.details ?? {};
 			if (isPartial || d.progress) return new Text(theme.fg("muted", `  ${d.progress ?? "…"}`), 0, 0);
-			const line = [d.title, d.url].filter(Boolean).join(theme.fg("dim", " · "));
+			const url = (() => {
+				try {
+					return d.url ? decodeURI(d.url) : "";
+				} catch {
+					return d.url ?? "";
+				}
+			})();
+			const line = [d.title, url].filter(Boolean).join(theme.fg("dim", " · "));
 			return {
 				render: (w: number) => [truncateToWidth(`  ${theme.fg("dim", "↳")} ${line || theme.fg("muted", "ok")}`, w)],
 				invalidate() {},

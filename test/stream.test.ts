@@ -209,3 +209,9 @@ test("délai dépassé : message en français, toujours relancé par pi", () => 
 	assert.match(m, /n'a pas répondu à temps/);
 	assert.ok(isRetryableAssistantError({ stopReason: "error", errorMessage: m } as any));
 });
+
+test("coupure réseau : message en français, toujours relancé", () => {
+	const m = rewriteError("Connection error.");
+	assert.match(m, /injoignable/);
+	assert.ok(isRetryableAssistantError({ stopReason: "error", errorMessage: m } as any));
+});

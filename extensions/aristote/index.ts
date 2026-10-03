@@ -205,10 +205,10 @@ export default async function (pi: ExtensionAPI) {
 	const NOMS: Record<string, string> = { fr: "français", en: "anglais", es: "espagnol", de: "allemand", it: "italien", pt: "portugais", nl: "néerlandais", el: "grec", ar: "arabe", zh: "chinois", ja: "japonais" };
 	const langue = async (args: string, ctx: any) => {
 		const v = args.trim().toLowerCase();
-		const nom = (l: string) => (l === "auto" ? "auto (la langue dans laquelle tu écris)" : NOMS[l] ?? l);
-		if (!v) return ctx.ui.notify(`Langue des réponses : ${nom(getLangue())}. Exemples : /langue auto · /langue fr · /langue en · /langue es`, "info");
+		const nom = (l: string) => (l === "auto" ? "auto (celle où tu écris)" : NOMS[l] ?? l);
+		if (!v) return ctx.ui.notify(`Γ Langue des réponses : ${nom(getLangue())} · /langue fr, en, es… ou auto`, "info");
 		setLangue(v);
-		ctx.ui.notify(`Le modèle répondra désormais en ${nom(v)}.`, "info");
+		ctx.ui.notify(`Γ Le modèle répondra désormais en ${nom(v)}.`, "info");
 	};
 	const completions = (p: string) =>
 		["auto", ...Object.keys(LANGUES)].filter((v) => v.startsWith(p)).map((v) => ({ value: v, label: v === "auto" ? "auto" : `${v} · ${NOMS[v]}` }));
@@ -273,8 +273,9 @@ export default async function (pi: ExtensionAPI) {
 				}),
 				stats: [
 					`session   ${stats.requests} requêtes · ${stats.emptyRetries} réponses vides rattrapées` +
-						(stats.emptyFailures ? ` (${stats.emptyFailures} abandons)` : ""),
-					`garde-fou ${guardStats.announcements} annonces sans outil · ${guardStats.loops} boucles coupées · réponses raccourcies (contexte plein) ${stats.clamped}`,
+						(stats.emptyFailures ? ` (${stats.emptyFailures} abandons)` : "") +
+						` · ${stats.clamped} raccourcies (contexte plein)`,
+					`garde-fou ${guardStats.announcements} annonces sans outil · ${guardStats.loops} boucles coupées`,
 				],
 			};
 			if (ctx.mode === "tui") pi.appendEntry("aristote-panel", data);

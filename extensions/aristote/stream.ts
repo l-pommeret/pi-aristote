@@ -89,10 +89,12 @@ export function rewriteError(message: string): string {
 	if (OVERFLOW_PATTERNS.some((re) => re.test(message))) return `context_length_exceeded (Aristote) : ${message}`;
 	if (/timed? ?out|timeout/i.test(message) && !/context/i.test(message))
 		return "Aristote n'a pas répondu à temps (request timed out) : nouvel essai automatique ; si ça persiste, le service est sans doute en panne.";
+	if (/^Connection error\.?$|ENOTFOUND|ECONNREFUSED|ECONNRESET|fetch failed/i.test(message))
+		return `Aristote injoignable (${message}) : vérifie ta connexion ; nouvel essai automatique.`;
 	if (/Unknown model|Invalid model name|NotFoundError|\b404\b/i.test(message))
 		return `Aristote : ce modèle n'est plus servi (${message.slice(0, 120)}). Tape /aristote refresh puis /model.`;
 	if (/\b401\b|unauthori[sz]ed|authentication error|invalid (api )?(key|token)/i.test(message))
-		return `Aristote : clé API refusée. Récupère ta clé sur https://aristote.education/llm-access/ puis tape /aristote key sk-… (${message.slice(0, 80)})`;
+		return `Aristote : clé API refusée. Récupère ta clé sur https://aristote.education/llm-access/ puis tape /aristote key sk-… (erreur 401).`;
 	return message;
 }
 
