@@ -42,6 +42,23 @@ export function setLangue(langue: string): void {
 	writeJsonAtomic(PREFS_FILE, prefs);
 }
 
+export function getPref<T>(key: string, fallback: T): T {
+	try {
+		return JSON.parse(readFileSync(PREFS_FILE, "utf8"))[key] ?? fallback;
+	} catch {
+		return fallback;
+	}
+}
+
+export function setPref(key: string, value: unknown): void {
+	let prefs: Record<string, unknown> = {};
+	try {
+		prefs = JSON.parse(readFileSync(PREFS_FILE, "utf8"));
+	} catch {}
+	prefs[key] = value;
+	writeJsonAtomic(PREFS_FILE, prefs);
+}
+
 export function langueInstruction(fallback = "the user's language"): string {
 	const l = getLangue();
 	return l === "auto" ? `Reply in ${fallback}.` : `Always reply in ${LANGUES[l] ?? l}, even if the user or the task is in another language.`;

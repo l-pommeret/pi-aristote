@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { PROVIDER } from "./config.ts";
+import { getPref, PROVIDER, setPref } from "./config.ts";
 
 const MAX_NUDGES = 2;
 const CHECK_EVERY = 400;
@@ -36,28 +36,51 @@ export function looksLikeAnnouncement(text: string): boolean {
 	return ACTION_NOW.test(last);
 }
 
+const CODE_LINE =
+	/^\s*(?:[<>=|]{3,}|[-+@]{1,3}(?:\s|$)|[{}[\]();]|\/\/|#|import\b|export\b|const\b|let\b|var\b|function\b|def\b|class\b|return\b|from\b)|[;{}]\s*$/;
+const CONCRETE = /[\w-]+\.[a-z]{1,5}\b|\/[\w.-]+|`[^`]+`|\d/i;
+
+const prose = (text: string) =>
+	text
+		.replace(/```[\s\S]*?(?:```|$)/g, "\n")
+		.split("\n")
+		.filter((l) => !CODE_LINE.test(l))
+		.join("\n");
+
+/** Renvoie l'extrait qui se répète si la fin du texte tourne en rond, sinon undefined. */
 export function findLoop(text: string, kind: "text" | "thinking" = "text"): string | undefined {
-	const repeats = kind === "text" ? 4 : 5;
 	const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
-	const sentences = text.split(/(?<=[.!?:\n])\s+/).map(norm).filter((s) => s.length >= 25);
+	const plain = prose(text);
+	const sentences = plain.split(/(?<=[.!?…])\s+|\n+/).map(norm).filter((s) => s.length >= 25);
+	const window = sentences.slice(-20);
 	const counts = new Map<string, number>();
-	for (const s of sentences) {
+	let top = "";
+	let max = 0;
+	for (const s of window) {
 		const n = (counts.get(s) ?? 0) + 1;
 		counts.set(s, n);
-		if (n >= repeats) return s;
+		if (n > max) [top, max] = [s, n];
 	}
-	if (kind === "thinking") return tailLoop(text, norm);
-	const promises = sentences.filter((s) => ANNOUNCE.test(s));
-	if (promises.length >= 6) return promises[promises.length - 1];
-	return tailLoop(text, norm);
+	if (max >= (kind === "text" ? 4 : 6) && max / window.length >= 0.5) {
+		const sections = text.split(/\n\s*\n|\n(?=#{1,6}\s)/).map(norm).filter((b) => b.includes(top));
+		const perSection = sections.length >= max && new Set(sections).size === sections.length;
+		if (!perSection) return top;
+	}
+	if (kind === "text") {
+		const last = sentences.slice(-10);
+		const empty = last.filter((s) => ANNOUNCE.test(s) && !CONCRETE.test(s));
+		if (last.length >= 8 && empty.length >= 8) return empty[empty.length - 1];
+	}
+	return tailLoop(plain, norm);
 }
 
+/** Queue du texte déjà vue plusieurs fois (boucle sans ponctuation). */
 function tailLoop(text: string, norm: (s: string) => string): string | undefined {
 	if (text.length > 1500) {
 		const tail = text.slice(-160);
 		let n = 0;
 		for (let i = text.indexOf(tail); i !== -1; i = text.indexOf(tail, i + 1)) n++;
-		if (n >= 3) return norm(tail);
+		if (n >= 4) return norm(tail);
 	}
 	return undefined;
 }
@@ -77,8 +100,24 @@ export function installGuard(pi: ExtensionAPI): void {
 	let loopSnippet: string | undefined;
 	let pending: { text: string; details: { kind: "loop" | "announce"; snippet?: string } } | undefined;
 
-	const isAristote = (ctx: any, message?: any) =>
-		message?.provider === PROVIDER || ctx.model?.provider === PROVIDER;
+	let enabled = getPref("gardefou", true) !== false;
+	const isAristote = (ctx: any, message?: any) => enabled && (message?.provider === PROVIDER || ctx.model?.provider === PROVIDER);
+
+	pi.registerCommand("gardefou", {
+		description: "Φ Garde-fou anti-boucle : on ou off",
+		getArgumentCompletions: (p: string) => ["on", "off"].filter((v) => v.startsWith(p)).map((v) => ({ value: v, label: v })),
+		handler: async (args, ctx) => {
+			const v = args.trim().toLowerCase();
+			if (v === "on" || v === "off") setPref("gardefou", v === "on");
+			const on = (enabled = getPref("gardefou", true) !== false);
+			ctx.ui.notify(
+				on
+					? "Φ Garde-fou actif : il relance le modèle s'il annonce sans agir ou tourne en rond. /gardefou off pour le couper."
+					: "Φ Garde-fou coupé : le modèle n'est plus relancé ni interrompu. /gardefou on pour le réactiver.",
+				"info",
+			);
+		},
+	});
 
 	pi.on("input", async () => {
 		nudges = 0;

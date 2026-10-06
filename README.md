@@ -39,6 +39,7 @@ L'installateur et `/maj` respectent les configurations à plusieurs fournisseurs
 | `/aristote key sk-…` | changer de clé API |
 | `/maj` | mettre à jour l'extension |
 | `/langue [auto\|fr\|en\|es…]` | langue des réponses (`auto` : celle dans laquelle tu écris) |
+| `/gardefou [on\|off]` | Φ garde-fou anti-boucle (actif par défaut) |
 | `/ultracode [on\|off]` | mode Ultracode (comme `Alt+U`) |
 | `/peripateticien`, `/euclide`, `/hephaistos`, `/socrate`, `/sappho` `<mission>` | un disciple seul |
 | `/clear` | repartir de zéro (comme `/new`) |

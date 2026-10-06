@@ -96,3 +96,38 @@ for (const texte of ANNONCES) {
 		assert.ok(looksLikeAnnouncement(texte));
 	});
 }
+
+const FICHIERS = ["src/core/agent.ts", "src/core/session.ts", "src/tui/editor.ts", "src/tui/footer.ts", "src/cli/args.ts", "src/cli/main.ts", "src/ai/stream.ts", "src/ai/models.ts", "src/tools/bash.ts", "src/tools/edit.ts", "src/tools/read.ts", "src/tools/grep.ts"];
+
+const RESOLUTION_REFLEXION = FICHIERS.map(
+	(f, i) =>
+		`Now ${f}. Let me check for remaining conflict markers in this file. ` +
+		`The upstream side renamed the option and our patch adds a new parameter, so I keep both. ` +
+		`<<<<<<< HEAD\nimport { Type } from "typebox";\nimport { readFileSync } from "node:fs";\n=======\nimport { Type, Static } from "typebox";\n>>>>>>> upstream/main (3f2a1c9)\n` +
+		`That hunk is resolved (${i + 1}/${FICHIERS.length}). Let me verify the build still passes after this change.`,
+).join("\n");
+
+const RESOLUTION_TEXTE =
+	"Voici les conflits résolus, fichier par fichier :\n\n" +
+	FICHIERS.map(
+		(f) =>
+			`### ${f}\n\`\`\`ts\nimport { Type } from "typebox";\nimport { readFileSync } from "node:fs";\nexport const DEFAULT_TIMEOUT_MS = 30_000;\n\`\`\`\nConflit résolu : on garde la version upstream et on réapplique le patch.`,
+	).join("\n\n");
+
+test("résolution de conflits en série : la réflexion n'est pas une boucle", () => {
+	assert.equal(findLoop(RESOLUTION_REFLEXION, "thinking"), undefined);
+});
+
+test("résolution de conflits en série : le compte rendu n'est pas une boucle", () => {
+	assert.equal(findLoop(RESOLUTION_TEXTE, "text"), undefined);
+});
+
+test("vérifications annoncées fichier par fichier : pas une boucle", () => {
+	const t = FICHIERS.map((f) => `Je vérifie ${f} : plus aucun marqueur de conflit, les tests de ce module passent.`).join("\n");
+	assert.equal(findLoop(t, "text"), undefined);
+});
+
+test("code répété dans un bloc (imports, marqueurs) : pas une boucle", () => {
+	const bloc = "```diff\n" + Array.from({ length: 12 }, () => ">>>>>>> upstream/main (3f2a1c9)\n=======\n<<<<<<< HEAD").join("\n") + "\n```";
+	assert.equal(findLoop(`Il reste ces marqueurs :\n${bloc}\nJe les traite un par un.`, "text"), undefined);
+});
