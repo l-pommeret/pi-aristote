@@ -3,6 +3,11 @@
 #   curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh
 set -eu
 
+# Tout le script tient dans main(), appelée à la dernière ligne : le shell lit
+# l'installateur en entier avant d'en exécuter la moindre commande. Un
+# téléchargement coupé en route (curl | sh) ne lance donc rien du tout, au lieu
+# d'exécuter une moitié de script.
+main() {
 SITE="${PI_ARISTOTE_SITE:-https://thegreeklibrary.org/pi-aristote}"
 SITE="${SITE%/}"
 # Secours si le site ne répond pas : l'archive du dépôt GitHub (vide : pas de secours).
@@ -262,3 +267,6 @@ case "$REPLY" in
 	*) if has_tty; then exec pi </dev/tty; fi ;;
 esac
 exit 0
+}
+
+main "$@"

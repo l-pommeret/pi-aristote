@@ -187,12 +187,14 @@ const bin = dossier("bin");
 writeFileSync(join(bin, "pi"), "#!/bin/sh\necho 1.0.0\n");
 chmodSync(join(bin, "pi"), 0o755);
 
-const lancer = (cmd: string, args: string[], env: Record<string, string>) =>
+// entree : ce que le shell lit sur son entrée standard, comme dans curl | sh.
+const lancer = (cmd: string, args: string[], env: Record<string, string>, entree?: string) =>
 	new Promise<{ code: number; out: string }>((ok) => {
 		const base = { ...process.env };
 		delete base.ARISTOTE_API_KEY;
 		for (const k of Object.keys(base)) if (k.startsWith("PI_ARISTOTE_")) delete base[k];
-		const p = spawn(cmd, args, { env: { ...base, PATH: `${bin}:${process.env.PATH}`, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+		const p = spawn(cmd, args, { env: { ...base, PATH: `${bin}:${process.env.PATH}`, ...env }, stdio: [entree === undefined ? "ignore" : "pipe", "pipe", "pipe"] });
+		if (entree !== undefined) p.stdin!.end(entree);
 		let out = "";
 		p.stdout.on("data", (d) => (out += d));
 		p.stderr.on("data", (d) => (out += d));
@@ -234,6 +236,33 @@ for (const shell of shells) {
 		assert.ok(existsSync(join(agent, "themes/aristote.json")));
 	});
 }
+
+test("installateur lu sur l'entrée standard (curl | sh) : entier, il s'exécute ; coupé en route, il ne fait rien", async () => {
+	const site = await servir({ "/pi-aristote.tar.gz": archiveSite("8.0.3") });
+	const lignes = lire("install.sh").split("\n");
+	const apresSuppression = lignes.findIndex((l) => l.includes('mkdir -p "$AGENT_DIR/extensions"')) + 12;
+	for (const shell of shells) {
+		const essai = async (texte: string) => {
+			const { home, agent } = maison();
+			mkdirSync(join(agent, "extensions/aristote"), { recursive: true });
+			writeFileSync(join(agent, "extensions/aristote/VERSION"), "1.7.1\n");
+			const env = { HOME: home, PI_CODING_AGENT_DIR: agent, PI_ARISTOTE_AUTO: "1", PI_ARISTOTE_SITE: site, PI_ARISTOTE_ARCHIVE: "" };
+			return { r: await lancer(shell, [], env, texte), agent };
+		};
+		const entier = await essai(lignes.join("\n"));
+		assert.equal(entier.r.code, 0, entier.r.out);
+		assert.equal(versionInstallee(entier.agent), "8.0.3");
+		// Jusqu'à l'accolade finale : erreur de syntaxe. Juste avant « main "$@" » :
+		// la fonction est lue mais jamais appelée.
+		const accolade = lignes.lastIndexOf("}");
+		for (const n of [12, Math.floor(lignes.length / 2), apresSuppression, accolade, accolade + 2]) {
+			const { r, agent } = await essai(`${lignes.slice(0, n).join("\n")}\n`);
+			if (n <= accolade) assert.notEqual(r.code, 0, `${shell}, coupé à la ligne ${n} : ${r.out}`);
+			assert.doesNotMatch(r.out, /Téléchargement/, `${shell}, coupé à la ligne ${n}`);
+			assert.equal(versionInstallee(agent), "1.7.1", `${shell}, coupé à la ligne ${n}`);
+		}
+	}
+});
 
 test("installateur : le site sert une page HTML, ou une archive avec un intrus → GitHub", async () => {
 	const gh = await servir({ [CODELOAD]: archiveGithub("8.0.2") });
