@@ -28,7 +28,7 @@ L'installateur ne casse pas une configuration existante (voir plus bas).
 
 ### Installé en version 1.7.1 (ou avant) ?
 
-Jusqu'à la 1.7.1, l'extension cherchait ses mises à jour sur les Pages du LISN, qui ne répondent plus : `/maj` y échoue. Une fois suffit pour passer à la nouvelle adresse :
+Jusqu'à la 1.7.1, l'extension cherchait ses mises à jour sur les Pages du LISN, qui ne répondent plus : `/maj` y attend une à deux minutes, puis échoue. Une fois suffit pour passer à la nouvelle adresse :
 
 - relancer l'installation depuis la nouvelle adresse, `curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh` (la configuration est conservée) ;
 - ou lancer pi avec la nouvelle adresse, `PI_ARISTOTE_SITE=https://thegreeklibrary.org/pi-aristote pi`, puis taper `/maj`.
@@ -84,9 +84,9 @@ tools/termshot.py      captures PNG du terminal
 
 ## D'où viennent les mises à jour
 
-La page, l'installateur, le numéro de version et l'archive de l'extension sont servis sous `https://thegreeklibrary.org/pi-aristote/` : `install.sh`, `VERSION` et `pi-aristote.tar.gz` (dossiers `extensions/` et `themes/` à la racine de l'archive). Au démarrage, pi lit `VERSION` et prévient s'il y a mieux ; `/maj` télécharge `install.sh` et le lance en mode automatique, qui ne remplace que l'extension.
+La page, l'installateur, le numéro de version et l'archive de l'extension sont servis sous `https://thegreeklibrary.org/pi-aristote/` : `install.sh`, `VERSION` et `pi-aristote.tar.gz` (dossiers `extensions/` et `themes/` à la racine de l'archive). Au démarrage, pi lit `VERSION` et prévient s'il y a mieux ; `/maj` télécharge `install.sh` et le lance en mode automatique, qui ne remplace que l'extension et son thème. La nouvelle version est d'abord extraite à côté, puis mise en place par renommage : un téléchargement ou une extraction ratés laissent l'ancienne intacte. L'installateur est écrit pour être lu en entier avant de s'exécuter : coupé en route par le réseau, `curl … | sh` ne fait rien.
 
-Si le site ne répond pas, tout passe par le dépôt GitHub : `VERSION` et `install.sh` sur `raw.githubusercontent.com`, l'archive de la branche `main` sur `codeload.github.com` (dont seuls `extensions/` et `themes/` sont extraits). Chaque téléchargement a un délai de connexion et un délai total. Les variables suivantes changent ces adresses (une variable vide coupe le secours correspondant) :
+Si le site ne répond pas, tout passe par le dépôt GitHub : `VERSION` et `install.sh` sur `raw.githubusercontent.com`, l'archive de la branche `main` sur `codeload.github.com` (dont seuls `extensions/` et `themes/` sont extraits). Chaque téléchargement a un délai de connexion et un délai total ; quand `/maj` a dû prendre `install.sh` sur GitHub, l'archive vient directement de GitHub, sans réinterroger le site. Les variables suivantes changent ces adresses (une variable vide coupe le secours correspondant) :
 
 | Variable | Par défaut |
 |---|---|
@@ -96,7 +96,7 @@ Si le site ne répond pas, tout passe par le dépôt GitHub : `VERSION` et `inst
 
 ## Publier une version
 
-Le site est construit par le workflow Pages du dépôt `l-pommeret/thegreeklibrary.org`, qui récupère ce dépôt et publie `site/`, `install.sh`, `VERSION` et l'archive. Une poussée ici ne le déclenche pas : il faut le lancer à la main.
+Le site est construit par le workflow Pages du dépôt `l-pommeret/thegreeklibrary.org`, qui récupère ce dépôt et publie `site/`, `install.sh`, `VERSION` et l'archive. Une poussée ici ne le déclenche pas : il faut le lancer à la main (toute autre publication du sas reprend aussi `main`).
 
 ```sh
 # 1. numéro de version, tests, commit
