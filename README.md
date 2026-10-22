@@ -2,10 +2,10 @@
 
 [pi](https://pi.dev), l'agent de code open source, optimisé pour les modèles souverains d'[Aristote](https://aristote.education).
 
-**Page d'installation : https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/**
+**Page d'installation : https://thegreeklibrary.org/pi-aristote/**
 
 ```sh
-curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh
+curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh
 ```
 
 Avant tout, récupère ta clé API sur **https://aristote.education/llm-access/** (connexion avec ton compte universitaire : Université Paris-Saclay et universités associées). Elle commence par `sk-`.
@@ -53,7 +53,7 @@ Pas de commande pour le navigateur : il suffit de demander une recherche. `ARIST
 extensions/aristote/   l'extension (chargée depuis ~/.pi/agent/extensions/aristote)
 themes/aristote.json   le thème
 install.sh             l'installateur
-site/index.html        la page d'installation (GitLab Pages)
+site/index.html        la page d'installation (servie sous thegreeklibrary.org/pi-aristote/)
 test/                  tests unitaires
 bench/                 bancs d'essai (modèles réels, navigateur)
 tools/termshot.py      captures PNG du terminal

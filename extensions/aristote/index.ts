@@ -26,7 +26,7 @@ import { installNavigateur } from "./navigateur.ts";
 import { installUltracode } from "./ultracode.ts";
 
 const SUBAGENT = Boolean(process.env.ARISTOTE_SUBAGENT);
-const SITE = (process.env.PI_ARISTOTE_SITE ?? "https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote").replace(/\/+$/, "");
+const SITE = (process.env.PI_ARISTOTE_SITE ?? "https://thegreeklibrary.org/pi-aristote").replace(/\/+$/, "");
 const HERE = dirname(fileURLToPath(import.meta.url));
 const localVersion = () => {
 	try {

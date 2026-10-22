@@ -1,9 +1,9 @@
 #!/bin/sh
 # Installe (ou met à jour) pi + l'extension Aristote.
-#   curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh
+#   curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh
 set -eu
 
-SITE="${PI_ARISTOTE_SITE:-https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote}"
+SITE="${PI_ARISTOTE_SITE:-https://thegreeklibrary.org/pi-aristote}"
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 PRIVATE_NODE="$HOME/.local/share/pi-aristote/node"
 NODE_MIN_MAJOR=22
