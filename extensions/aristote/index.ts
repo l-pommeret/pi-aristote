@@ -24,9 +24,10 @@ import { hooks, stats, streamAristote } from "./stream.ts";
 import { installUi, type PanelData } from "./ui.ts";
 import { installNavigateur } from "./navigateur.ts";
 import { installUltracode } from "./ultracode.ts";
+import { newer, remoteVersion, sources, UPDATE_TIMEOUT_MS, updateArgs } from "./maj.ts";
 
 const SUBAGENT = Boolean(process.env.ARISTOTE_SUBAGENT);
-const SITE = (process.env.PI_ARISTOTE_SITE ?? "https://thegreeklibrary.org/pi-aristote").replace(/\/+$/, "");
+const SOURCES = sources();
 const HERE = dirname(fileURLToPath(import.meta.url));
 const localVersion = () => {
 	try {
@@ -34,12 +35,6 @@ const localVersion = () => {
 	} catch {
 		return "dev";
 	}
-};
-const newer = (a: string, b: string) => {
-	const pa = a.split(".").map(Number);
-	const pb = b.split(".").map(Number);
-	for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0);
-	return false;
 };
 const FALLBACK_IDS = ["qwen-3.8-27b", "qwen-3.6-35b-instruct", "gemma-4-31b"];
 
@@ -131,11 +126,9 @@ export default async function (pi: ExtensionAPI) {
 				if (/nouveaux|de retour|tombés/.test(summary)) lastCtx?.ui.notify(`Aristote : ${summary}`, "info");
 			})
 			.catch(() => {});
-		fetch(`${SITE}/VERSION`, { signal: AbortSignal.timeout(5000) })
-			.then((r) => (r.ok ? r.text() : ""))
-			.then((v) => {
-				const remote = v.trim();
-				if (/^\d+\.\d+\.\d+$/.test(remote) && newer(remote, localVersion()))
+		remoteVersion(SOURCES)
+			.then((remote) => {
+				if (remote && newer(remote, localVersion()))
 					setTimeout(() => lastCtx?.ui.notify(`Nouvelle version de l'extension Aristote (${remote}) : tape /maj`, "info"), 1500);
 			})
 			.catch(() => {});
@@ -182,11 +175,13 @@ export default async function (pi: ExtensionAPI) {
 	const update = async (ctx: any) => {
 		const before = localVersion();
 		ctx.ui.notify(`Recherche d'une mise à jour (version actuelle : ${before})…`, "info");
-		const r = await pi.exec("sh", ["-c", 'i="$(curl -fsSL "$1/install.sh")" && printf "%s\\n" "$i" | PI_ARISTOTE_AUTO=1 sh', "sh", SITE]);
-		if (r.code !== 0) return ctx.ui.notify(`Échec de la mise à jour :\n${(r.stderr || r.stdout).slice(-400)}`, "error");
+		const r = await pi.exec("sh", updateArgs(SOURCES), { timeout: UPDATE_TIMEOUT_MS });
+		if (r.code !== 0 || r.killed)
+			return ctx.ui.notify(`Échec de la mise à jour :\n${(r.stderr || r.stdout || "délai dépassé").slice(-400)}`, "error");
 		const after = localVersion();
 		if (after === before) return ctx.ui.notify(`L'extension Aristote est déjà à jour (${after}).`, "info");
-		ctx.ui.notify(`Extension Aristote mise à jour : ${before} → ${after}. Rechargement…`, "info");
+		const viaGithub = /passage par GitHub/.test(r.stderr) ? " (site injoignable : récupérée sur GitHub)" : "";
+		ctx.ui.notify(`Extension Aristote mise à jour : ${before} → ${after}${viaGithub}. Rechargement…`, "info");
 		await ctx.reload();
 	};
 

@@ -4,6 +4,10 @@
 set -eu
 
 SITE="${PI_ARISTOTE_SITE:-https://thegreeklibrary.org/pi-aristote}"
+SITE="${SITE%/}"
+# Secours si le site ne répond pas : l'archive du dépôt GitHub (vide : pas de secours).
+# Jamais les Pages du LISN, qui servent une 1.7.1 figée.
+ARCHIVE="${PI_ARISTOTE_ARCHIVE-https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main}"
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 PRIVATE_NODE="$HOME/.local/share/pi-aristote/node"
 NODE_MIN_MAJOR=22
@@ -56,11 +60,11 @@ install_private_node() {
 	case "$(uname -m)" in arm64 | aarch64) arch=arm64 ;; x86_64 | amd64) arch=x64 ;; *) die "Architecture non prise en charge : $(uname -m)" ;; esac
 	if [ "$os" = darwin ] || command -v xz >/dev/null 2>&1; then fmt=tar.xz; flag=-xJf; size="≈ 27 Mo"; else fmt=tar.gz; flag=-xzf; size="≈ 53 Mo"; fi
 	say "Installation d'une version privée de Node.js, sans sudo ($size, c'est l'étape la plus longue)…"
-	version="$(curl -fsSL https://nodejs.org/dist/index.json 2>/dev/null | tr '{' '\n' | sed -n '/"lts":"/{s/.*"version":"\(v[0-9.]*\)".*/\1/p;q;}')"
+	version="$(curl -fsSL --connect-timeout 10 --max-time 60 https://nodejs.org/dist/index.json 2>/dev/null | tr '{' '\n' | sed -n '/"lts":"/{s/.*"version":"\(v[0-9.]*\)".*/\1/p;q;}')"
 	[ -n "$version" ] || die "Impossible de trouver la dernière version de Node.js."
 	tmp="$(mktemp -d)"
 	if [ -t 2 ]; then progress="--progress-bar"; else progress="-s"; fi
-	curl -fSL $progress "https://nodejs.org/dist/$version/node-$version-$os-$arch.$fmt" -o "$tmp/node.archive" || die "Téléchargement de Node.js impossible."
+	curl -fSL $progress --connect-timeout 10 --max-time 900 "https://nodejs.org/dist/$version/node-$version-$os-$arch.$fmt" -o "$tmp/node.archive" || die "Téléchargement de Node.js impossible."
 	rm -rf "$PRIVATE_NODE"
 	mkdir -p "$PRIVATE_NODE"
 	tar $flag "$tmp/node.archive" -C "$PRIVATE_NODE" --strip-components=1
@@ -125,15 +129,41 @@ fi
 WAS_INSTALLED=""
 [ -d "$AGENT_DIR/extensions/aristote" ] && WAS_INSTALLED=1
 
+# Une archive valable contient l'extension, et rien d'autre que extensions/ et themes/.
+archive_ok() {
+	list="$(tar -tzf "$1" 2>/dev/null)" || return 1
+	printf '%s\n' "$list" | grep -Eq '^(\./)?extensions/aristote/index\.ts$' || return 1
+	if printf '%s\n' "$list" | grep -Ev '^(\./)?(extensions|themes)(/|$)' | grep -q .; then return 1; fi
+	if printf '%s\n' "$list" | grep -Eq '(^|/)\.\.(/|$)'; then return 1; fi
+	return 0
+}
+# Secours : l'archive du dépôt GitHub, dont le dossier racine (pi-aristote-main/)
+# est retiré et dont on n'extrait que extensions/ et themes/.
+from_github() {
+	rm -rf "$tmp/gh" "$tmp/gh.tgz" "$tmp/ext.tgz"
+	mkdir "$tmp/gh" || return 1
+	curl -fsSL --connect-timeout 10 --max-time 120 "$ARCHIVE" -o "$tmp/gh.tgz" || return 1
+	top="$(tar -tzf "$tmp/gh.tgz" 2>/dev/null | sed -n '/^[A-Za-z0-9][A-Za-z0-9._-]*\/extensions\/aristote\/index\.ts$/{s,/.*,,p;q;}')"
+	case "$top" in "" | . | ..) return 1 ;; esac
+	tar -xzf "$tmp/gh.tgz" -C "$tmp/gh" "$top/extensions" "$top/themes" || return 1
+	COPYFILE_DISABLE=1 tar -czf "$tmp/ext.tgz" -C "$tmp/gh/$top" extensions themes || return 1
+	archive_ok "$tmp/ext.tgz"
+}
+
 say "Téléchargement de l'extension Aristote…"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-curl -fsSL "$SITE/pi-aristote.tar.gz" -o "$tmp/ext.tgz" || die "Téléchargement de l'extension impossible ($SITE)."
-tar -tzf "$tmp/ext.tgz" 2>/dev/null | grep -q '^extensions/aristote/index.ts$' || die "Archive de l'extension invalide ($SITE)."
+FROM=""
+if ! { curl -fsSL --connect-timeout 10 --max-time 120 "$SITE/pi-aristote.tar.gz" -o "$tmp/ext.tgz" && archive_ok "$tmp/ext.tgz"; }; then
+	[ -n "$ARCHIVE" ] || die "Téléchargement de l'extension impossible ($SITE)."
+	printf '  %s%s est injoignable ou incomplet : je passe par le dépôt GitHub.%s\n' "$D" "$SITE" "$Z"
+	from_github || die "Téléchargement de l'extension impossible ($SITE, puis GitHub)."
+	FROM=" (depuis GitHub)"
+fi
 mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/themes"
 rm -rf "$AGENT_DIR/extensions/aristote"
 tar -xzf "$tmp/ext.tgz" -C "$AGENT_DIR"
-ok "Extension $(cat "$AGENT_DIR/extensions/aristote/VERSION" 2>/dev/null) installée dans $AGENT_DIR/extensions/aristote"
+ok "Extension $(cat "$AGENT_DIR/extensions/aristote/VERSION" 2>/dev/null) installée dans $AGENT_DIR/extensions/aristote$FROM"
 
 [ -n "$AUTO" ] && exit 0
 
@@ -192,12 +222,15 @@ if [ -z "$(cfg has-key)" ] && [ -z "${ARISTOTE_API_KEY:-}" ]; then
 		ask_secret "  Colle-la ici (rien ne s'affiche, c'est normal) : "
 		key="$(printf '%s' "$REPLY" | tr -d '[:space:]')"
 		[ -z "$key" ] && { printf '  %sPas de clé : récupère-la sur https://aristote.education/llm-access/ puis tape /aristote key sk-… dans pi%s\n' "$D" "$Z"; break; }
-		code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $key" https://llm.aristote.education/v1/models || true)"
+		code="$(curl -s --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $key" https://llm.aristote.education/v1/models || true)"
 		if [ "$code" = 200 ]; then
 			if out="$(KEY="$key" cfg set-key)"; then ok "Clé vérifiée et enregistrée"; backup_note "$out"; else printf '  %sDonne-la plutôt dans pi avec /aristote key sk-…%s\n' "$D" "$Z"; fi
 			break
 		fi
-		printf '  %sAristote refuse cette clé (HTTP %s). Réessaie, ou appuie sur Entrée pour passer.%s\n' "$R" "$code" "$Z"
+		case "$code" in
+			"" | 000) printf '  %sAristote ne répond pas (réseau ?). Réessaie, ou appuie sur Entrée pour passer.%s\n' "$R" "$Z" ;;
+			*) printf '  %sAristote refuse cette clé (HTTP %s). Réessaie, ou appuie sur Entrée pour passer.%s\n' "$R" "$code" "$Z" ;;
+		esac
 	done
 fi
 
