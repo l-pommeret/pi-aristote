@@ -170,7 +170,8 @@ tmp="$(mktemp -d)"
 stage=""
 trap nettoyer EXIT
 FROM=""
-if ! { curl -fsSL --connect-timeout 10 --max-time 120 "$SITE/pi-aristote.tar.gz" -o "$tmp/ext.tgz" && archive_ok "$tmp/ext.tgz"; }; then
+# PI_ARISTOTE_SITE_KO=1 (posé par /maj quand le site n'a pas servi install.sh) : directement GitHub.
+if [ -n "${PI_ARISTOTE_SITE_KO:-}" ] || ! { curl -fsSL --connect-timeout 10 --max-time 120 "$SITE/pi-aristote.tar.gz" -o "$tmp/ext.tgz" && archive_ok "$tmp/ext.tgz"; }; then
 	[ -n "$ARCHIVE" ] || die "Téléchargement de l'extension impossible ($SITE)."
 	printf '  %s%s est injoignable ou incomplet : je passe par le dépôt GitHub.%s\n' "$D" "$SITE" "$Z"
 	from_github || die "Téléchargement de l'extension impossible ($SITE, puis GitHub)."

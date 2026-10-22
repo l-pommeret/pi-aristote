@@ -52,7 +52,10 @@ export async function remoteVersion(s: Sources, fetchImpl: typeof fetch = fetch,
 
 // Lancé par /maj : sh -c UPDATE_SCRIPT sh <site> <raw>. Télécharge install.sh
 // (site, puis GitHub), vérifie que c'en est bien un, puis le lance en mode
-// automatique : seule l'extension est remplacée, aucune configuration.
+// automatique : seule l'extension est remplacée, aucune configuration. Quand
+// le site n'a pas su servir install.sh, PI_ARISTOTE_SITE_KO=1 dit à
+// l'installateur d'aller directement à l'archive GitHub : un site qui accepte
+// la connexion sans jamais répondre n'est attendu qu'une fois (60 s), pas deux.
 export const UPDATE_SCRIPT = `set -u
 get() {
 	i="$(curl -fsSL --connect-timeout 10 --max-time 60 "$1/install.sh")" || return 1
@@ -60,12 +63,14 @@ get() {
 	echo "Réponse inattendue de $1 : ce n'est pas install.sh." >&2
 	return 1
 }
+ko=""
 if ! get "$1"; then
 	[ -n "$2" ] || exit 1
 	echo "Site injoignable ($1) : passage par GitHub." >&2
 	get "$2" || exit 1
+	ko=1
 fi
-printf '%s\\n' "$i" | PI_ARISTOTE_AUTO=1 sh`;
+printf '%s\\n' "$i" | PI_ARISTOTE_AUTO=1 PI_ARISTOTE_SITE_KO="$ko" sh`;
 
 export const UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
 

@@ -124,8 +124,9 @@ type Routes = Record<string, Buffer | string>;
 const serveurs: { close: () => void }[] = [];
 after(() => serveurs.forEach((s) => s.close()));
 
-const servir = async (routes: Routes) => {
+const servir = async (routes: Routes, journal?: string[]) => {
 	const srv = createServer((req, res) => {
+		journal?.push(req.url ?? "");
 		const corps = routes[(req.url ?? "").split("?")[0]];
 		if (corps === undefined) {
 			res.writeHead(404, { "content-type": "text/html" });
@@ -375,4 +376,27 @@ test("/maj de bout en bout, site en panne : install.sh et archive viennent de Gi
 	const r = await maj(site, raw, { HOME: home, PI_CODING_AGENT_DIR: agent, PI_ARISTOTE_SITE: site, PI_ARISTOTE_ARCHIVE: `${depot}${CODELOAD}` });
 	assert.equal(r.code, 0, r.out);
 	assert.equal(versionInstallee(agent), "8.1.0");
+});
+
+test("/maj, site qui répond mal : il n'est pas interrogé une deuxième fois pour l'archive", async () => {
+	const depot = await servir({
+		"/l-pommeret/pi-aristote/main/install.sh": readFileSync(join(ROOT, "install.sh")),
+		[CODELOAD]: archiveGithub("8.1.1"),
+	});
+	const appels: string[] = [];
+	// Le site sert encore une archive, mais plus install.sh (404) : /maj passe par
+	// GitHub, et l'installateur ne revient pas au site.
+	const site = await servir({ "/pi-aristote.tar.gz": archiveSite("6.6.6") }, appels);
+	const { home, agent } = maison();
+	const env = { HOME: home, PI_CODING_AGENT_DIR: agent, PI_ARISTOTE_SITE: site, PI_ARISTOTE_ARCHIVE: `${depot}${CODELOAD}` };
+	const r = await maj(site, `${depot}/l-pommeret/pi-aristote/main`, env);
+	assert.equal(r.code, 0, r.out);
+	assert.equal(versionInstallee(agent), "8.1.1");
+	assert.deepEqual(appels, ["/install.sh"]);
+	// Sans repli (le site a servi install.sh), l'archive vient bien du site.
+	const site2 = await servir({ "/install.sh": readFileSync(join(ROOT, "install.sh")), "/pi-aristote.tar.gz": archiveSite("8.1.2") });
+	const m2 = maison();
+	const r2 = await maj(site2, `${depot}/l-pommeret/pi-aristote/main`, { HOME: m2.home, PI_CODING_AGENT_DIR: m2.agent, PI_ARISTOTE_SITE: site2, PI_ARISTOTE_ARCHIVE: `${depot}${CODELOAD}` });
+	assert.equal(r2.code, 0, r2.out);
+	assert.equal(versionInstallee(m2.agent), "8.1.2");
 });
