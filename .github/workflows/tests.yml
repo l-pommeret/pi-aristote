@@ -18,10 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Installer pi 1.0.0
@@ -30,8 +30,15 @@ jobs:
         run: |
           for s in sh dash bash; do "$s" -n install.sh; done
           sh -n test/run.sh
+          # ShellCheck est fourni par l'image ubuntu de GitHub ; avertissements et erreurs seulement.
+          if command -v shellcheck >/dev/null; then
+            shellcheck -S warning -s sh install.sh test/run.sh
+          else
+            echo "::warning::shellcheck absent de l'image, vérification sautée"
+          fi
       - name: Tests unitaires
         run: |
-          export HOME="$(mktemp -d)"
+          HOME="$(mktemp -d)"
+          export HOME
           unset ARISTOTE_API_KEY
           ./test/run.sh
