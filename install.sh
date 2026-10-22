@@ -28,6 +28,10 @@ fi
 say() { printf '%sΑ%s %s\n' "$J" "$Z" "$1"; }
 ok() { printf '%s✓%s %s\n' "$G" "$Z" "$1"; }
 die() { printf '%s✗ %s%s\n' "$R" "$1" "$Z" >&2; exit 1; }
+nettoyer() {
+	[ -z "${tmp:-}" ] || rm -rf "$tmp"
+	[ -z "${stage:-}" ] || rm -rf "$stage"
+}
 has_tty() { [ -z "$AUTO" ] && (exec </dev/tty) 2>/dev/null; }
 ask() {
 	has_tty || return 0
@@ -157,7 +161,8 @@ from_github() {
 
 say "Téléchargement de l'extension Aristote…"
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+stage=""
+trap nettoyer EXIT
 FROM=""
 if ! { curl -fsSL --connect-timeout 10 --max-time 120 "$SITE/pi-aristote.tar.gz" -o "$tmp/ext.tgz" && archive_ok "$tmp/ext.tgz"; }; then
 	[ -n "$ARCHIVE" ] || die "Téléchargement de l'extension impossible ($SITE)."
@@ -166,8 +171,22 @@ if ! { curl -fsSL --connect-timeout 10 --max-time 120 "$SITE/pi-aristote.tar.gz"
 	FROM=" (depuis GitHub)"
 fi
 mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/themes"
-rm -rf "$AGENT_DIR/extensions/aristote"
-tar -xzf "$tmp/ext.tgz" -C "$AGENT_DIR"
+# L'archive est extraite à côté, dans le même dossier que l'extension, puis mise
+# en place par renommage : une extraction ratée (disque plein, coupure) laisse
+# l'ancienne version intacte. Seuls extensions/aristote et les thèmes de
+# l'archive sont déplacés ; le reste de ~/.pi/agent n'est pas touché.
+stage="$(mktemp -d "$AGENT_DIR/.pi-aristote.XXXXXX")" || die "Impossible d'écrire dans $AGENT_DIR."
+tar -xzf "$tmp/ext.tgz" -C "$stage" && [ -f "$stage/extensions/aristote/index.ts" ] ||
+	die "Extraction de l'extension impossible : la version en place n'a pas été touchée."
+[ ! -d "$AGENT_DIR/extensions/aristote" ] || mv "$AGENT_DIR/extensions/aristote" "$stage/ancienne" ||
+	die "Impossible de remplacer $AGENT_DIR/extensions/aristote : la version en place n'a pas été touchée."
+if ! mv "$stage/extensions/aristote" "$AGENT_DIR/extensions/aristote"; then
+	[ ! -d "$stage/ancienne" ] || mv "$stage/ancienne" "$AGENT_DIR/extensions/aristote"
+	die "Impossible de mettre l'extension en place : l'ancienne version est conservée."
+fi
+for f in "$stage"/themes/*; do
+	[ ! -f "$f" ] || mv -f "$f" "$AGENT_DIR/themes/"
+done
 ok "Extension $(cat "$AGENT_DIR/extensions/aristote/VERSION" 2>/dev/null) installée dans $AGENT_DIR/extensions/aristote$FROM"
 
 [ -n "$AUTO" ] && exit 0
@@ -264,7 +283,7 @@ REPLY=n
 ask "$(printf '\n%sΑ%s Lancer pi maintenant ? [O/n] ' "$J" "$Z")"
 case "$REPLY" in
 	n | N | non | Non) ;;
-	*) if has_tty; then exec pi </dev/tty; fi ;;
+	*) if has_tty; then nettoyer; exec pi </dev/tty; fi ;;
 esac
 exit 0
 }

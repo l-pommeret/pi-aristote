@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -262,6 +262,52 @@ test("installateur lu sur l'entrée standard (curl | sh) : entier, il s'exécute
 			assert.equal(versionInstallee(agent), "1.7.1", `${shell}, coupé à la ligne ${n}`);
 		}
 	}
+});
+
+test("installateur : extraction ratée (disque plein) → l'ancienne extension reste entière", async () => {
+	const site = await servir({ "/pi-aristote.tar.gz": archiveSite("8.0.4") });
+	// Un tar qui liste normalement mais échoue en pleine extraction, après avoir
+	// écrit une partie des fichiers.
+	const vraiTar = spawnSync("sh", ["-c", "command -v tar"], { encoding: "utf8" }).stdout.trim();
+	const fauxBin = dossier("tar-plein");
+	writeFileSync(
+		join(fauxBin, "tar"),
+		`#!/bin/sh\nif [ "$1" = -xzf ]; then\n\tdest=""; prev=""\n\tfor a in "$@"; do [ "$prev" = -C ] && dest="$a"; prev="$a"; done\n\t"${vraiTar}" "$@" || exit 1\n\trm -f "$dest/extensions/aristote/index.ts"\n\techo "tar: No space left on device" >&2\n\texit 1\nfi\nexec "${vraiTar}" "$@"\n`,
+	);
+	chmodSync(join(fauxBin, "tar"), 0o755);
+	for (const shell of shells) {
+		const { home, agent } = maison();
+		mkdirSync(join(agent, "extensions/aristote"), { recursive: true });
+		writeFileSync(join(agent, "extensions/aristote/VERSION"), "1.7.1\n");
+		writeFileSync(join(agent, "extensions/aristote/index.ts"), "// 1.7.1\n");
+		const r = await installer(shell, agent, home, { PATH: `${fauxBin}:${bin}:${process.env.PATH}`, PI_ARISTOTE_SITE: site, PI_ARISTOTE_ARCHIVE: "" });
+		assert.notEqual(r.code, 0, r.out);
+		assert.match(r.out, /version en place n'a pas été touchée/);
+		assert.equal(versionInstallee(agent), "1.7.1");
+		assert.equal(readFileSync(join(agent, "extensions/aristote/index.ts"), "utf8"), "// 1.7.1\n");
+		assert.deepEqual(readdirSync(agent).sort(), ["extensions", "themes"], "pas de dossier provisoire oublié");
+	}
+});
+
+test("installateur : seuls extensions/aristote et le thème changent ; les autres extensions, thèmes et droits restent", async () => {
+	const site = await servir({ "/pi-aristote.tar.gz": archiveSite("8.0.5") });
+	const { home, agent } = maison();
+	mkdirSync(join(agent, "extensions/aristote"), { recursive: true });
+	writeFileSync(join(agent, "extensions/aristote/VERSION"), "1.7.1\n");
+	writeFileSync(join(agent, "extensions/aristote/ancien.ts"), "// retiré par la mise à jour\n");
+	mkdirSync(join(agent, "extensions/autre"));
+	writeFileSync(join(agent, "extensions/autre/index.ts"), "export default function () {}\n");
+	mkdirSync(join(agent, "themes"));
+	writeFileSync(join(agent, "themes/mon-theme.json"), "{}\n");
+	chmodSync(join(agent, "extensions"), 0o700);
+	const r = await installer("sh", agent, home, { PI_ARISTOTE_SITE: site, PI_ARISTOTE_ARCHIVE: "" });
+	assert.equal(r.code, 0, r.out);
+	assert.equal(versionInstallee(agent), "8.0.5");
+	assert.ok(!existsSync(join(agent, "extensions/aristote/ancien.ts")), "l'ancienne extension est remplacée, pas fusionnée");
+	assert.deepEqual(readdirSync(join(agent, "extensions")).sort(), ["aristote", "autre"]);
+	assert.deepEqual(readdirSync(join(agent, "themes")).sort(), ["aristote.json", "mon-theme.json"]);
+	assert.equal(statSync(join(agent, "extensions")).mode & 0o777, 0o700);
+	assert.deepEqual(readdirSync(agent).sort(), ["extensions", "themes"]);
 });
 
 test("installateur : le site sert une page HTML, ou une archive avec un intrus → GitHub", async () => {
