@@ -18,6 +18,9 @@ PRIVATE_NODE="$HOME/.local/share/pi-aristote/node"
 NODE_MIN_MAJOR=22
 NODE_MIN_MINOR=19
 AUTO="${PI_ARISTOTE_AUTO:-}"
+# L'API qui vérifie la clé : celle de l'extension (ARISTOTE_BASE_URL, comme dans config.ts).
+API="${ARISTOTE_BASE_URL:-https://llm.aristote.education/v1}"
+API="${API%/}"
 
 if [ -t 1 ]; then
 	J="$(printf '\033[38;2;242;188;60m')"; O="$(printf '\033[38;2;224;122;69m')"; S="$(printf '\033[38;2;26;140;166m')"
@@ -43,9 +46,12 @@ ask_secret() {
 	REPLY=""
 	has_tty || return 0
 	printf '%s' "$1" >/dev/tty
+	# Ctrl-C pendant la saisie : l'écho du terminal est rétabli avant de quitter.
+	trap 'stty echo </dev/tty 2>/dev/null; printf "\n" >/dev/tty; exit 130' INT TERM HUP
 	stty -echo </dev/tty 2>/dev/null || true
 	IFS= read -r REPLY </dev/tty || REPLY=""
 	stty echo </dev/tty 2>/dev/null || true
+	trap - INT TERM HUP
 	printf '\n' >/dev/tty
 }
 
@@ -246,7 +252,9 @@ if [ -z "$(cfg has-key)" ] && [ -z "${ARISTOTE_API_KEY:-}" ]; then
 		ask_secret "  Colle-la ici (rien ne s'affiche, c'est normal) : "
 		key="$(printf '%s' "$REPLY" | tr -d '[:space:]')"
 		[ -z "$key" ] && { printf '  %sPas de clé : récupère-la sur https://aristote.education/llm-access/ puis tape /aristote key sk-… dans pi%s\n' "$D" "$Z"; break; }
-		code="$(curl -s --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $key" https://llm.aristote.education/v1/models || true)"
+		# La clé passe par l'entrée standard de curl (printf est interne au shell) :
+		# en argument, elle serait visible de tous les comptes de la machine (ps).
+		code="$(printf 'Authorization: Bearer %s\n' "$key" | curl -s --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' -H @- "$API/models" || true)"
 		if [ "$code" = 200 ]; then
 			if out="$(KEY="$key" cfg set-key)"; then ok "Clé vérifiée et enregistrée"; backup_note "$out"; else printf '  %sDonne-la plutôt dans pi avec /aristote key sk-…%s\n' "$D" "$Z"; fi
 			break

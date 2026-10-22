@@ -98,6 +98,14 @@ test("chaque appel à curl a un délai de connexion et un délai total", () => {
 	}
 });
 
+test("installateur : la clé n'apparaît jamais dans la ligne de commande de curl", () => {
+	const install = lire("install.sh");
+	const avecCle = install.split("\n").filter((l) => /\$key/.test(l) && /\bcurl\b/.test(l));
+	assert.equal(avecCle.length, 1);
+	assert.match(avecCle[0], /printf 'Authorization: Bearer %s\\n' "\$key" \| curl .* -H @- "\$API\/models"/);
+	assert.ok(install.includes('API="${ARISTOTE_BASE_URL:-https://llm.aristote.education/v1}"'));
+});
+
 test("même adresse dans l'extension, l'installateur et la page ; plus de LISN", () => {
 	const install = lire("install.sh");
 	assert.ok(install.includes(`SITE="\${PI_ARISTOTE_SITE:-${DEFAULT_SITE}}"`));
