@@ -219,9 +219,18 @@ footer a { color: var(--sarcelle-clair); }
 	.copy { padding: 14px; }
 	.cmd code, .install-card .cmd code { font-size: 13px; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
 }
+
+.responsabilite { background: #c62828; color: #fff; text-align: center; padding: 1.4rem 1rem 1.2rem; }
+.responsabilite strong { display: block; font-size: clamp(1.6rem, 4.5vw, 2.6rem); font-weight: 800; letter-spacing: .01em; line-height: 1.15; }
+.responsabilite p { margin: .55rem auto 0; max-width: 46rem; font-size: 1rem; line-height: 1.5; }
+.responsabilite code { background: rgba(0,0,0,.22); padding: .05em .35em; border-radius: 4px; }
 </style>
 </head>
 <body>
+	<div class="responsabilite" role="note">
+		<strong>Mise à jour de la responsabilité</strong>
+		<p>Depuis la 1.9.0, pi demande votre accord avant chaque commande qu'il veut lancer. Pour s'en passer : <code>pi --yolo</code>, ou <code>/yolo</code> dans pi (vous restez responsable de ce qu'il exécute).</p>
+	</div>
 <div class="stripes"></div>
 <div class="wrap">
 	<header>
@@ -347,7 +356,7 @@ footer a { color: var(--sarcelle-clair); }
 		<details><summary>Quelles commandes dans pi&nbsp;?</summary>
 			<ul>
 				<li><code>/ultracode</code> (ou <kbd>Alt U</kbd>)&nbsp;: le Lycée au complet&nbsp;; <code>/peripateticien</code>, <code>/euclide</code>, <code>/hephaistos</code>, <code>/socrate</code>, <code>/sappho</code>&nbsp;: un disciple seul, suivi d'une mission&nbsp;;</li>
-				<li><code>/langue</code>&nbsp;: langue des réponses&nbsp;; <code>/aristote</code>&nbsp;: état des modèles et de la clé&nbsp;; <code>/maj</code>&nbsp;: mise à jour&nbsp;; <code>/gardefou off</code> (ou <code>on</code>)&nbsp;: couper ou rétablir le garde-fou anti-boucle, actif par défaut&nbsp;;</li>
+				<li><code>/langue</code>&nbsp;: langue des réponses&nbsp;; <code>/aristote</code>&nbsp;: état des modèles et de la clé&nbsp;; <code>/maj</code>&nbsp;: mise à jour&nbsp;; <code>/gardefou off</code> (ou <code>on</code>)&nbsp;: couper ou rétablir le garde-fou anti-boucle, actif par défaut&nbsp;; <code>/yolo</code> (ou <code>pi --yolo</code>)&nbsp;: exécuter les commandes sans confirmation&nbsp;;</li>
 				<li><code>/clear</code>&nbsp;: repartir de zéro&nbsp;; <code>/exit</code>&nbsp;: quitter. <kbd>Échap</kbd> interrompt, <kbd>Ctrl O</kbd> déplie les comptes rendus, <kbd>Ctrl L</kbd> change de modèle.</li>
 			</ul>
 			<p>Pas de commande pour le navigateur&nbsp;: demande simplement «&nbsp;cherche sur le web…&nbsp;».</p>

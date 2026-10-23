@@ -6,6 +6,10 @@
 
 Dépôt principal : https://gitlab.lisn.upsaclay.fr/vibe-coding/pi-aristote · miroirs : https://github.com/l-pommeret/pi-aristote (code) et https://thegreeklibrary.org/pi-aristote/ (page, installateur, mises à jour).
 
+## Mise à jour de la responsabilité (1.9.0)
+
+Avant chaque commande que le modèle veut lancer (outil `bash`), pi demande votre accord. Pour s'en passer : `pi --yolo`, ou `/yolo` dans pi (`/yolo off` pour revenir aux confirmations). Sans interface (`pi -p`, sous-agents d'Ultracode), les commandes sont refusées sauf en mode yolo.
+
 ## Installation
 
 1. **Récupère ta clé API Aristote.** Ouvre **https://aristote.education/llm-access/** et connecte-toi avec ton compte universitaire (Université Paris-Saclay, ses composantes et ses universités membres associées). À l'étape « 01 · Obtenir votre clé d'API », copie la clé : elle commence par `sk-`. Attention, « Régénérer la clé » invalide l'ancienne.
