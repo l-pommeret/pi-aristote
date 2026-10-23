@@ -2,7 +2,9 @@
 
 [pi](https://pi.dev), l'agent de code open source, optimisé pour les modèles souverains d'[Aristote](https://aristote.education).
 
-**Page d'installation : https://thegreeklibrary.org/pi-aristote/**
+**Page d'installation : https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/**
+
+Dépôt principal : https://gitlab.lisn.upsaclay.fr/vibe-coding/pi-aristote · miroirs : https://github.com/l-pommeret/pi-aristote (code) et https://thegreeklibrary.org/pi-aristote/ (page, installateur, mises à jour).
 
 ## Installation
 
@@ -10,13 +12,15 @@
 2. **Lance l'installation** dans un terminal (macOS, Linux) :
 
    ```sh
-   curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh
+   curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh
    ```
+
+   Si les Pages du LISN ne répondent pas, le miroir sert la même commande : `curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh`.
 
    **Windows** : l'installation passe par WSL. Dans PowerShell :
 
    ```powershell
-   wsl bash -lc "curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh"
+   wsl bash -lc "curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh"
    ```
 
    La première fois, installe d'abord WSL avec `wsl --install` dans un PowerShell ouvert en administrateur, redémarre et choisis ton nom d'utilisateur Linux. Ensuite, pour travailler : `wsl`, puis `pi` (les disques Windows sont sous `/mnt/c`).
@@ -26,14 +30,9 @@ La commande installe Node.js si besoin (version privée, sans sudo), pi, l'exten
 
 L'installateur ne casse pas une configuration existante (voir plus bas).
 
-### Installé en version 1.7.1 (ou avant) ?
+### Installé en version 1.7.1 ou 1.8.0 ?
 
-Jusqu'à la 1.7.1, l'extension cherchait ses mises à jour sur les Pages du LISN, qui ne répondent plus : `/maj` y attend une à deux minutes, puis échoue. Une fois suffit pour passer à la nouvelle adresse :
-
-- relancer l'installation depuis la nouvelle adresse, `curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh` (la configuration est conservée) ;
-- ou lancer pi avec la nouvelle adresse, `PI_ARISTOTE_SITE=https://thegreeklibrary.org/pi-aristote pi`, puis taper `/maj`.
-
-À partir de la 1.8.0, l'extension connaît la nouvelle adresse et passe par GitHub si elle ne répond pas.
+Rien à faire : `/maj` suffit. La 1.7.1 cherche ses mises à jour sur les Pages du LISN, la 1.8.0 sur thegreeklibrary.org ; les deux servent la 1.8.1, qui revient au LISN comme source principale et garde les autres en secours.
 
 ## Ce que fait l'extension
 
@@ -74,43 +73,51 @@ Pas de commande pour le navigateur : il suffit de demander une recherche. `ARIST
 extensions/aristote/   l'extension (chargée depuis ~/.pi/agent/extensions/aristote)
 themes/aristote.json   le thème
 install.sh             l'installateur
-site/index.html        la page d'installation (servie sous thegreeklibrary.org/pi-aristote/)
-site/ecautal/          supports du cours EcAuTAL 2026 (servis sous thegreeklibrary.org/pi-aristote/ecautal/)
+site/                  la page d'installation et ses fichiers, sous-dossiers compris (servis sous les deux adresses)
 test/                  tests unitaires
 bench/                 bancs d'essai (modèles réels, navigateur)
 tools/termshot.py      captures PNG du terminal
-.github/workflows/     tests à chaque poussée (ubuntu, Node 22, pi 1.0.0, sans clé API)
+.gitlab-ci.yml         publication sur les Pages du LISN à chaque poussée sur main
+.github/workflows/     tests à chaque poussée sur le miroir GitHub (ubuntu, Node 22, pi 1.0.0, sans clé API)
 ```
 
 ## D'où viennent les mises à jour
 
-La page, l'installateur, le numéro de version et l'archive de l'extension sont servis sous `https://thegreeklibrary.org/pi-aristote/` : `install.sh`, `VERSION` et `pi-aristote.tar.gz` (dossiers `extensions/` et `themes/` à la racine de l'archive). Au démarrage, pi lit `VERSION` et prévient s'il y a mieux ; `/maj` télécharge `install.sh` et le lance en mode automatique, qui ne remplace que l'extension et son thème. La nouvelle version est d'abord extraite à côté, puis mise en place par renommage : un téléchargement ou une extraction ratés laissent l'ancienne intacte. L'installateur est écrit pour être lu en entier avant de s'exécuter : coupé en route par le réseau, `curl … | sh` ne fait rien.
+La page, l'installateur, le numéro de version et l'archive de l'extension sont servis par les Pages du LISN, `https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/` : `install.sh`, `VERSION` et `pi-aristote.tar.gz` (dossiers `extensions/` et `themes/` à la racine de l'archive). Au démarrage, pi lit `VERSION` et prévient s'il y a mieux ; `/maj` télécharge `install.sh` et le lance en mode automatique, qui ne remplace que l'extension et son thème. La nouvelle version est d'abord extraite à côté, puis mise en place par renommage : un téléchargement ou une extraction ratés laissent l'ancienne intacte. L'installateur est écrit pour être lu en entier avant de s'exécuter : coupé en route par le réseau, `curl … | sh` ne fait rien.
 
-Si le site ne répond pas, tout passe par le dépôt GitHub : `VERSION` et `install.sh` sur `raw.githubusercontent.com`, l'archive de la branche `main` sur `codeload.github.com` (dont seuls `extensions/` et `themes/` sont extraits). Chaque téléchargement a un délai de connexion et un délai total ; quand `/maj` a dû prendre `install.sh` sur GitHub, l'archive vient directement de GitHub, sans réinterroger le site. Les variables suivantes changent ces adresses (une variable vide coupe le secours correspondant) :
+Si les Pages du LISN ne conviennent pas, les secours sont essayés dans l'ordre :
+
+1. le miroir `https://thegreeklibrary.org/pi-aristote/`, qui sert les mêmes fichiers ;
+2. le dépôt GitHub : `VERSION` et `install.sh` sur `raw.githubusercontent.com`, l'archive de la branche `main` sur `codeload.github.com` (dont seuls `extensions/` et `themes/` sont extraits).
+
+Un secours ne fait jamais redescendre : `/maj` lit le `VERSION` de chaque source avant d'y prendre `install.sh`, saute celles qui servent une version plus ancienne que celle installée, et lance l'installateur de la source retenue sur l'archive de cette même source ; l'installateur refait la vérification sur le `VERSION` de l'archive. Si aucune source joignable n'a mieux, l'extension en place est gardée. Chaque téléchargement a un délai de connexion et un délai total. Les variables suivantes changent ces adresses (une variable vide coupe le secours correspondant) :
 
 | Variable | Par défaut |
 |---|---|
-| `PI_ARISTOTE_SITE` | `https://thegreeklibrary.org/pi-aristote` |
+| `PI_ARISTOTE_SITE` | `https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote` |
+| `PI_ARISTOTE_MIRRORS` | `https://thegreeklibrary.org/pi-aristote` (plusieurs adresses séparées par des espaces) |
 | `PI_ARISTOTE_RAW` | `https://raw.githubusercontent.com/l-pommeret/pi-aristote/main` |
 | `PI_ARISTOTE_ARCHIVE` | `https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main` |
 
 ## Publier une version
 
-Le site est construit par le workflow Pages du dépôt `l-pommeret/thegreeklibrary.org`, qui récupère ce dépôt et publie `site/`, `install.sh`, `VERSION` et l'archive. Une poussée ici ne le déclenche pas : il faut le lancer à la main (toute autre publication du sas reprend aussi `main`).
+Le dépôt principal est celui du LISN (`origin`) ; GitHub (`github`) en est le miroir. Une poussée sur `main` au LISN lance la CI GitLab (`.gitlab-ci.yml`), qui publie `site/` (sous-dossiers compris), `install.sh`, `VERSION` et l'archive sur les Pages. Le miroir thegreeklibrary.org est construit par le workflow Pages du dépôt `l-pommeret/thegreeklibrary.org`, qui récupère le dépôt GitHub : il faut le lancer à la main.
 
 ```sh
 # 1. numéro de version, tests, commit
-echo 1.8.1 > extensions/aristote/VERSION
+echo 1.8.2 > extensions/aristote/VERSION
 ./test/run.sh
-git commit -am "Version 1.8.1 : …"
-# 2. pousser, puis publier
+git commit -am "Version 1.8.2 : …"
+# 2. LISN d'abord (source principale), puis les miroirs
 git push origin main
+git push github main
 gh workflow run pages.yml -R l-pommeret/thegreeklibrary.org -f pi_aristote_ref=main
-# 3. vérifier, une fois le workflow terminé
+# 3. vérifier, une fois le pipeline et le workflow terminés
+curl -fsS --max-time 30 https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/VERSION
 curl -fsS --max-time 30 https://thegreeklibrary.org/pi-aristote/VERSION
 ```
 
-`pi_aristote_ref` accepte aussi une étiquette ou un commit. Les Pages gardent les fichiers en cache dix minutes : attendre un peu avant de dire aux utilisateurs de taper `/maj`. Ils sont aussi prévenus au lancement suivant de pi. Ne mets pas `install.sh`, `VERSION` ni `pi-aristote.tar.gz` dans `site/` : ils sont produits au moment de la publication.
+Publier le LISN avant le miroir n'est pas obligatoire (un miroir en retard est sauté), mais c'est l'ordre attendu. `pi_aristote_ref` accepte aussi une étiquette ou un commit. Les Pages gardent les fichiers en cache quelques minutes : attendre un peu avant de dire aux utilisateurs de taper `/maj`. Ils sont aussi prévenus au lancement suivant de pi. Ne mets pas `install.sh`, `VERSION` ni `pi-aristote.tar.gz` dans `site/` : ils sont produits au moment de la publication (la CI échoue sinon).
 
 ## Tests
 
