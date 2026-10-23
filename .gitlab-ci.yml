@@ -1,10 +1,20 @@
+# Publication sur les Pages du LISN (https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/),
+# la source principale de l'installateur et de /maj : la page et tout site/ (sous-dossiers
+# compris), install.sh, VERSION et l'archive des dossiers extensions/ et themes/.
+# Le miroir thegreeklibrary.org est publié à part (voir le README).
 pages:
   image: alpine:latest
   script:
+    - test -z "$(ls -A site | grep -Ex 'install\.sh|VERSION|pi-aristote\.tar\.gz')"
     - mkdir -p public
-    - tar -czf public/pi-aristote.tar.gz extensions themes
-    - cp install.sh site/* public/
+    - cp -R site/. public/
+    - find public -name '.*' -prune -exec rm -rf {} ';'
+    - cp install.sh public/
     - cp extensions/aristote/VERSION public/VERSION
+    - grep -Eqx '[0-9]+\.[0-9]+\.[0-9]+' public/VERSION
+    - tar -czf public/pi-aristote.tar.gz extensions themes
+    - tar -tzf public/pi-aristote.tar.gz | grep -qx 'extensions/aristote/index.ts'
+    - ls -lR public
   artifacts:
     paths:
       - public

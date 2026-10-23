@@ -1,7 +1,8 @@
-# Tests de pi-aristote sur chaque poussée : sans clé API ni réseau, avec les
-# paquets d'une installation de pi 1.0.0, dans un HOME temporaire. La page et
-# l'archive ne sont pas publiées d'ici : c'est le workflow Pages du dépôt
-# l-pommeret/thegreeklibrary.org qui les sert sous /pi-aristote/ (voir le README).
+# Tests de pi-aristote sur chaque poussée vers le miroir GitHub : sans clé API ni
+# réseau, avec les paquets d'une installation de pi 1.0.0, dans un HOME
+# temporaire. Rien n'est publié d'ici : la source principale est le GitLab du
+# LISN, dont la CI (.gitlab-ci.yml) sert les Pages ; le miroir thegreeklibrary.org
+# est construit par le workflow Pages de l-pommeret/thegreeklibrary.org (voir le README).
 name: Tests
 
 on:
