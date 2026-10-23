@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { rgb } from "./ui.ts";
 
 // Mise à jour de la responsabilité (1.9.0) : avant chaque commande lancée par le
 // modèle, pi demande l'accord de l'utilisateur. `pi --yolo` ou `/yolo` s'en passent.
@@ -34,7 +35,38 @@ export async function decider(
 	return ok ? undefined : { block: true, reason: REFUS_UTILISATEUR };
 }
 
+export const AVERTISSEMENT_F1 =
+	"Vous êtes sûrs ??? Vous savez ce que vous faites. Un moteur de F1 implique de savoir conduire.";
+
+// Couleurs qui tournent : la ligne d'état « /yolo » clignote en multicolore.
+const ARC = [[230, 57, 70], [224, 122, 69], [242, 188, 60], [124, 200, 90], [26, 140, 166], [110, 90, 220], [200, 80, 190]];
+export function cligno(texte: string, phase: number): string {
+	if (phase % 2 === 1) return " ".repeat([...texte].length); // le clignotement
+	return [...texte].map((ch, i) => (ch === " " ? ch : rgb(ARC[(i + phase) % ARC.length], ch))).join("");
+}
+
 export function installResponsabilite(pi: ExtensionAPI) {
+	let minuterie: ReturnType<typeof setInterval> | undefined;
+	const afficher = (ctx: any) => {
+		if (minuterie) clearInterval(minuterie);
+		minuterie = undefined;
+		if (ctx?.mode !== "tui" || process.env.ARISTOTE_SUBAGENT === "1") return;
+		if (yoloActif(pi.getFlag("yolo"))) {
+			ctx.ui.setStatus("aristote-yolo", rgb([230, 57, 70], "Φ yolo : commandes sans confirmation"));
+			return;
+		}
+		let phase = 0;
+		const texte = "Φ /yolo : lancer les commandes sans confirmation";
+		const tick = () => ctx.ui.setStatus("aristote-yolo", cligno(texte, phase++ % 6 === 5 ? 1 : phase * 2));
+		tick();
+		minuterie = setInterval(tick, 350);
+		(minuterie as any).unref?.();
+	};
+	pi.on("session_start", async (_e: any, ctx: any) => {
+		afficher(ctx);
+		if (pi.getFlag("yolo") === true && ctx.mode === "tui") ctx.ui.notify(`Φ --yolo. ${AVERTISSEMENT_F1}`, "warning");
+	});
+
 	pi.registerFlag("yolo", {
 		description: "Exécuter les commandes du modèle sans demander confirmation",
 		type: "boolean",
@@ -60,7 +92,15 @@ export function installResponsabilite(pi: ExtensionAPI) {
 				ctx.ui.notify("Φ pi a été lancé avec --yolo : relancez-le sans l'option pour retrouver les confirmations.", "warning");
 				return;
 			}
+			if (on && !yoloActif(pi.getFlag("yolo"))) {
+				const sur = ctx.hasUI ? await ctx.ui.confirm("Φ /yolo", AVERTISSEMENT_F1) : false;
+				if (!sur) {
+					ctx.ui.notify("Φ Sage décision : pi continue de demander votre accord avant chaque commande.", "info");
+					return;
+				}
+			}
 			setYolo(on);
+			afficher(ctx);
 			ctx.ui.notify(
 				on
 					? "Φ Mode yolo : les commandes du modèle s'exécutent sans confirmation. Vous en restez responsable. /yolo off pour revenir aux confirmations."

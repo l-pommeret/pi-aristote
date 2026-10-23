@@ -39,3 +39,11 @@ test("--yolo ou ARISTOTE_YOLO=1 ; /yolo passe par la variable, héritée des sou
 	setYolo(false, env);
 	assert.equal(yoloActif(undefined, env), false);
 });
+
+test("la ligne /yolo clignote en couleurs", async () => {
+	const { cligno } = await import("../extensions/aristote/responsabilite.ts");
+	const a = cligno("Φ /yolo", 0), b = cligno("Φ /yolo", 2), vide = cligno("Φ /yolo", 1);
+	assert.equal(vide.trim(), "");
+	assert.equal(a.replace(/\x1b\[[0-9;]*m/g, ""), "Φ /yolo");
+	if (a !== "Φ /yolo") assert.notEqual(a, b);
+});
