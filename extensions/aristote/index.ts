@@ -24,7 +24,7 @@ import { hooks, stats, streamAristote } from "./stream.ts";
 import { installUi, type PanelData } from "./ui.ts";
 import { installNavigateur } from "./navigateur.ts";
 import { installUltracode } from "./ultracode.ts";
-import { newer, remoteVersion, sources, UPDATE_TIMEOUT_MS, updateArgs } from "./maj.ts";
+import { newer, remoteVersion, sources, UPDATE_TIMEOUT_MS, updateArgs, updateSource } from "./maj.ts";
 
 const SUBAGENT = Boolean(process.env.ARISTOTE_SUBAGENT);
 const SOURCES = sources();
@@ -126,7 +126,7 @@ export default async function (pi: ExtensionAPI) {
 				if (/nouveaux|de retour|tombés/.test(summary)) lastCtx?.ui.notify(`Aristote : ${summary}`, "info");
 			})
 			.catch(() => {});
-		remoteVersion(SOURCES)
+		remoteVersion(SOURCES, localVersion())
 			.then((remote) => {
 				if (remote && newer(remote, localVersion()))
 					setTimeout(() => lastCtx?.ui.notify(`Nouvelle version de l'extension Aristote (${remote}) : tape /maj`, "info"), 1500);
@@ -175,13 +175,14 @@ export default async function (pi: ExtensionAPI) {
 	const update = async (ctx: any) => {
 		const before = localVersion();
 		ctx.ui.notify(`Recherche d'une mise à jour (version actuelle : ${before})…`, "info");
-		const r = await pi.exec("sh", updateArgs(SOURCES), { timeout: UPDATE_TIMEOUT_MS });
+		const r = await pi.exec("sh", updateArgs(SOURCES, before), { timeout: UPDATE_TIMEOUT_MS });
 		if (r.code !== 0 || r.killed)
 			return ctx.ui.notify(`Échec de la mise à jour :\n${(r.stderr || r.stdout || "délai dépassé").slice(-400)}`, "error");
 		const after = localVersion();
 		if (after === before) return ctx.ui.notify(`L'extension Aristote est déjà à jour (${after}).`, "info");
-		const viaGithub = /passage par GitHub/.test(r.stderr) ? " (site injoignable : récupérée sur GitHub)" : "";
-		ctx.ui.notify(`Extension Aristote mise à jour : ${before} → ${after}${viaGithub}. Rechargement…`, "info");
+		const source = updateSource(r.stderr);
+		const secours = source && source !== SOURCES.site ? ` (récupérée sur le secours ${source})` : "";
+		ctx.ui.notify(`Extension Aristote mise à jour : ${before} → ${after}${secours}. Rechargement…`, "info");
 		await ctx.reload();
 	};
 

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Installe (ou met à jour) pi + l'extension Aristote.
-#   curl -fsSL https://thegreeklibrary.org/pi-aristote/install.sh | sh
+#   curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh
+# Miroir : https://thegreeklibrary.org/pi-aristote/install.sh
 set -eu
 
 # Tout le script tient dans main(), appelée à la dernière ligne : le shell lit
@@ -8,10 +9,12 @@ set -eu
 # téléchargement coupé en route (curl | sh) ne lance donc rien du tout, au lieu
 # d'exécuter une moitié de script.
 main() {
-SITE="${PI_ARISTOTE_SITE:-https://thegreeklibrary.org/pi-aristote}"
+SITE="${PI_ARISTOTE_SITE:-https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote}"
 SITE="${SITE%/}"
-# Secours si le site ne répond pas : l'archive du dépôt GitHub (vide : pas de secours).
-# Jamais les Pages du LISN, qui servent une 1.7.1 figée.
+# Secours, dans l'ordre, si le site ne convient pas (injoignable, archive
+# incomplète ou plus ancienne que l'extension installée) : les miroirs (séparés
+# par des espaces), puis l'archive du dépôt GitHub. Vide : pas de secours.
+MIRRORS="${PI_ARISTOTE_MIRRORS-https://thegreeklibrary.org/pi-aristote}"
 ARCHIVE="${PI_ARISTOTE_ARCHIVE-https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main}"
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 PRIVATE_NODE="$HOME/.local/share/pi-aristote/node"
@@ -144,25 +147,62 @@ fi
 WAS_INSTALLED=""
 [ -d "$AGENT_DIR/extensions/aristote" ] && WAS_INSTALLED=1
 
-# Une archive valable contient l'extension, et rien d'autre que extensions/ et themes/.
+# Une archive valable contient l'extension et son VERSION, et rien d'autre que extensions/ et themes/.
 archive_ok() {
 	list="$(tar -tzf "$1" 2>/dev/null)" || return 1
 	printf '%s\n' "$list" | grep -Eq '^(\./)?extensions/aristote/index\.ts$' || return 1
+	printf '%s\n' "$list" | grep -Eq '^(\./)?extensions/aristote/VERSION$' || return 1
 	if printf '%s\n' "$list" | grep -Ev '^(\./)?(extensions|themes)(/|$)' | grep -q .; then return 1; fi
 	if printf '%s\n' "$list" | grep -Eq '(^|/)\.\.(/|$)'; then return 1; fi
 	return 0
 }
-# Secours : l'archive du dépôt GitHub, dont le dossier racine (pi-aristote-main/)
+est_version() { printf '%s\n' "$1" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; }
+# $1 >= $2, pour des versions 1.2.3.
+au_moins() { awk -v a="$1" -v b="$2" 'BEGIN { split(a, x, "."); split(b, y, "."); for (i = 1; i <= 3; i++) { if (x[i] + 0 > y[i] + 0) exit 0; if (x[i] + 0 < y[i] + 0) exit 1 } exit 0 }'; }
+# La version de l'extension en place, si elle en a une lisible.
+ICI="$(tr -d '[:space:]' 2>/dev/null <"$AGENT_DIR/extensions/aristote/VERSION" || true)"
+est_version "$ICI" || ICI=""
+# accepter <source> : l'archive $tmp/ext.tgz est complète et ne fait pas
+# redescendre la version installée. Sinon, la source suivante est essayée.
+accepter() {
+	if ! archive_ok "$tmp/ext.tgz"; then
+		printf '  %s%s : archive incomplète ou inattendue.%s\n' "$D" "$1" "$Z"
+		return 1
+	fi
+	V="$({ tar -xzOf "$tmp/ext.tgz" extensions/aristote/VERSION 2>/dev/null || tar -xzOf "$tmp/ext.tgz" ./extensions/aristote/VERSION 2>/dev/null; } | tr -d '[:space:]')"
+	if ! est_version "$V"; then
+		printf '  %s%s : VERSION illisible dans l'"'"'archive.%s\n' "$D" "$1" "$Z"
+		return 1
+	fi
+	if [ -n "$ICI" ] && ! au_moins "$V" "$ICI"; then
+		printf '  %s%s sert la %s, plus ancienne que la %s installée : ignorée.%s\n' "$D" "$1" "$V" "$ICI" "$Z"
+		PLUS_ANCIENNE=1
+		return 1
+	fi
+	return 0
+}
+# depuis_site <site> : l'archive que sert ce site (Pages du LISN ou miroir).
+depuis_site() {
+	if ! curl -fsSL --connect-timeout 10 --max-time 120 "$1/pi-aristote.tar.gz" -o "$tmp/ext.tgz"; then
+		printf '  %s%s est injoignable.%s\n' "$D" "$1" "$Z"
+		return 1
+	fi
+	accepter "$1"
+}
+# Secours final : l'archive du dépôt GitHub, dont le dossier racine (pi-aristote-main/)
 # est retiré et dont on n'extrait que extensions/ et themes/.
 from_github() {
 	rm -rf "$tmp/gh" "$tmp/gh.tgz" "$tmp/ext.tgz"
 	mkdir "$tmp/gh" || return 1
-	curl -fsSL --connect-timeout 10 --max-time 120 "$ARCHIVE" -o "$tmp/gh.tgz" || return 1
+	if ! curl -fsSL --connect-timeout 10 --max-time 120 "$ARCHIVE" -o "$tmp/gh.tgz"; then
+		printf '  %sLe dépôt GitHub est injoignable.%s\n' "$D" "$Z"
+		return 1
+	fi
 	top="$(tar -tzf "$tmp/gh.tgz" 2>/dev/null | sed -n '/^[A-Za-z0-9][A-Za-z0-9._-]*\/extensions\/aristote\/index\.ts$/{s,/.*,,p;q;}')"
 	case "$top" in "" | . | ..) return 1 ;; esac
 	tar -xzf "$tmp/gh.tgz" -C "$tmp/gh" "$top/extensions" "$top/themes" || return 1
 	COPYFILE_DISABLE=1 tar -czf "$tmp/ext.tgz" -C "$tmp/gh/$top" extensions themes || return 1
-	archive_ok "$tmp/ext.tgz"
+	accepter GitHub
 }
 
 say "Téléchargement de l'extension Aristote…"
@@ -170,31 +210,60 @@ tmp="$(mktemp -d)"
 stage=""
 trap nettoyer EXIT
 FROM=""
-# PI_ARISTOTE_SITE_KO=1 (posé par /maj quand le site n'a pas servi install.sh) : directement GitHub.
-if [ -n "${PI_ARISTOTE_SITE_KO:-}" ] || ! { curl -fsSL --connect-timeout 10 --max-time 120 "$SITE/pi-aristote.tar.gz" -o "$tmp/ext.tgz" && archive_ok "$tmp/ext.tgz"; }; then
-	[ -n "$ARCHIVE" ] || die "Téléchargement de l'extension impossible ($SITE)."
-	printf '  %s%s est injoignable ou incomplet : je passe par le dépôt GitHub.%s\n' "$D" "$SITE" "$Z"
-	from_github || die "Téléchargement de l'extension impossible ($SITE, puis GitHub)."
-	FROM=" (depuis GitHub)"
+PLUS_ANCIENNE=""
+GARDEE=""
+ESSAYES="$SITE"
+# PI_ARISTOTE_SITE_KO=1 (posé par /maj quand il passe par GitHub) : ni site ni miroir.
+if [ -n "${PI_ARISTOTE_SITE_KO:-}" ] || ! depuis_site "$SITE"; then
+	trouve=""
+	if [ -z "${PI_ARISTOTE_SITE_KO:-}" ]; then
+		for m in $MIRRORS; do
+			m="${m%/}"
+			[ "$m" != "$SITE" ] || continue
+			printf '  %sJe passe par le miroir %s.%s\n' "$D" "$m" "$Z"
+			ESSAYES="$ESSAYES, $m"
+			if depuis_site "$m"; then
+				trouve=1
+				FROM=" (depuis le miroir $m)"
+				break
+			fi
+		done
+	fi
+	if [ -z "$trouve" ] && [ -n "$ARCHIVE" ]; then
+		printf '  %sJe passe par le dépôt GitHub.%s\n' "$D" "$Z"
+		ESSAYES="$ESSAYES, puis GitHub"
+		if from_github; then
+			trouve=1
+			FROM=" (depuis GitHub)"
+		fi
+	fi
+	if [ -z "$trouve" ]; then
+		[ -n "$PLUS_ANCIENNE" ] || die "Téléchargement de l'extension impossible ($ESSAYES)."
+		GARDEE=1
+	fi
 fi
-mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/themes"
-# L'archive est extraite à côté, dans le même dossier que l'extension, puis mise
-# en place par renommage : une extraction ratée (disque plein, coupure) laisse
-# l'ancienne version intacte. Seuls extensions/aristote et les thèmes de
-# l'archive sont déplacés ; le reste de ~/.pi/agent n'est pas touché.
-stage="$(mktemp -d "$AGENT_DIR/.pi-aristote.XXXXXX")" || die "Impossible d'écrire dans $AGENT_DIR."
-tar -xzf "$tmp/ext.tgz" -C "$stage" && [ -f "$stage/extensions/aristote/index.ts" ] ||
-	die "Extraction de l'extension impossible : la version en place n'a pas été touchée."
-[ ! -d "$AGENT_DIR/extensions/aristote" ] || mv "$AGENT_DIR/extensions/aristote" "$stage/ancienne" ||
-	die "Impossible de remplacer $AGENT_DIR/extensions/aristote : la version en place n'a pas été touchée."
-if ! mv "$stage/extensions/aristote" "$AGENT_DIR/extensions/aristote"; then
-	[ ! -d "$stage/ancienne" ] || mv "$stage/ancienne" "$AGENT_DIR/extensions/aristote"
-	die "Impossible de mettre l'extension en place : l'ancienne version est conservée."
+if [ -n "$GARDEE" ]; then
+	ok "Extension $ICI conservée : aucune source joignable ne sert de version plus récente"
+else
+	mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/themes"
+	# L'archive est extraite à côté, dans le même dossier que l'extension, puis mise
+	# en place par renommage : une extraction ratée (disque plein, coupure) laisse
+	# l'ancienne version intacte. Seuls extensions/aristote et les thèmes de
+	# l'archive sont déplacés ; le reste de ~/.pi/agent n'est pas touché.
+	stage="$(mktemp -d "$AGENT_DIR/.pi-aristote.XXXXXX")" || die "Impossible d'écrire dans $AGENT_DIR."
+	tar -xzf "$tmp/ext.tgz" -C "$stage" && [ -f "$stage/extensions/aristote/index.ts" ] ||
+		die "Extraction de l'extension impossible : la version en place n'a pas été touchée."
+	[ ! -d "$AGENT_DIR/extensions/aristote" ] || mv "$AGENT_DIR/extensions/aristote" "$stage/ancienne" ||
+		die "Impossible de remplacer $AGENT_DIR/extensions/aristote : la version en place n'a pas été touchée."
+	if ! mv "$stage/extensions/aristote" "$AGENT_DIR/extensions/aristote"; then
+		[ ! -d "$stage/ancienne" ] || mv "$stage/ancienne" "$AGENT_DIR/extensions/aristote"
+		die "Impossible de mettre l'extension en place : l'ancienne version est conservée."
+	fi
+	for f in "$stage"/themes/*; do
+		[ ! -f "$f" ] || mv -f "$f" "$AGENT_DIR/themes/"
+	done
+	ok "Extension $(cat "$AGENT_DIR/extensions/aristote/VERSION" 2>/dev/null) installée dans $AGENT_DIR/extensions/aristote$FROM"
 fi
-for f in "$stage"/themes/*; do
-	[ ! -f "$f" ] || mv -f "$f" "$AGENT_DIR/themes/"
-done
-ok "Extension $(cat "$AGENT_DIR/extensions/aristote/VERSION" 2>/dev/null) installée dans $AGENT_DIR/extensions/aristote$FROM"
 
 [ -n "$AUTO" ] && exit 0
 
