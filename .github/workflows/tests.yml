@@ -1,0 +1,44 @@
+# Tests de pi-aristote sur chaque poussée : sans clé API ni réseau, avec les
+# paquets d'une installation de pi 1.0.0, dans un HOME temporaire. La page et
+# l'archive ne sont pas publiées d'ici : c'est le workflow Pages du dépôt
+# l-pommeret/thegreeklibrary.org qui les sert sous /pi-aristote/ (voir le README).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Installer pi 1.0.0
+        run: npm install -g --no-audit --no-fund @earendil-works/pi-coding-agent@1.0.0
+      - name: Syntaxe des scripts shell
+        run: |
+          for s in sh dash bash; do "$s" -n install.sh; done
+          sh -n test/run.sh
+          # ShellCheck est fourni par l'image ubuntu de GitHub ; avertissements et erreurs seulement.
+          if command -v shellcheck >/dev/null; then
+            shellcheck -S warning -s sh install.sh test/run.sh
+          else
+            echo "::warning::shellcheck absent de l'image, vérification sautée"
+          fi
+      - name: Tests unitaires
+        run: |
+          HOME="$(mktemp -d)"
+          export HOME
+          unset ARISTOTE_API_KEY
+          ./test/run.sh
