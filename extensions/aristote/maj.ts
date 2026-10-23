@@ -1,5 +1,5 @@
-// D'où viennent les mises à jour : les Pages du LISN d'abord, puis les miroirs,
-// puis le dépôt GitHub.
+// D'où viennent les mises à jour : les Pages du LISN. Des secours (miroirs, dépôt
+// Git) restent possibles par variables d'environnement, vides par défaut.
 //
 // Chaque site (PI_ARISTOTE_SITE, puis PI_ARISTOTE_MIRRORS, séparés par des
 // espaces) sert VERSION, install.sh et pi-aristote.tar.gz. Si aucun ne convient,
@@ -13,9 +13,9 @@
 // vérification sur l'archive qu'il télécharge.
 
 export const DEFAULT_SITE = "https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote";
-export const DEFAULT_MIRRORS = "https://thegreeklibrary.org/pi-aristote";
-export const DEFAULT_RAW = "https://raw.githubusercontent.com/l-pommeret/pi-aristote/main";
-export const DEFAULT_ARCHIVE = "https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main";
+export const DEFAULT_MIRRORS = "";
+export const DEFAULT_RAW = "";
+export const DEFAULT_ARCHIVE = "";
 
 export interface Sources {
 	site: string;

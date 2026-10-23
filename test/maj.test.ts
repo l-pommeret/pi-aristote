@@ -18,18 +18,14 @@ after(() => rmSync(work, { recursive: true, force: true }));
 
 // --- adresses ---------------------------------------------------------------
 
-test("adresses par défaut : les Pages du LISN, puis thegreeklibrary.org, puis GitHub", () => {
-	assert.deepEqual(sources({}), { site: DEFAULT_SITE, mirrors: [DEFAULT_MIRRORS], raw: DEFAULT_RAW });
+test("adresses par défaut : les Pages du LISN seules, sans secours", () => {
+	assert.deepEqual(sources({}), { site: DEFAULT_SITE, mirrors: [], raw: "" });
 	assert.equal(DEFAULT_SITE, "https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote");
-	assert.equal(DEFAULT_MIRRORS, "https://thegreeklibrary.org/pi-aristote");
-	assert.equal(DEFAULT_RAW, "https://raw.githubusercontent.com/l-pommeret/pi-aristote/main");
-	assert.equal(DEFAULT_ARCHIVE, "https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main");
-	assert.deepEqual(versionUrls(sources({})), [
-		"https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/VERSION",
-		"https://thegreeklibrary.org/pi-aristote/VERSION",
-		"https://raw.githubusercontent.com/l-pommeret/pi-aristote/main/extensions/aristote/VERSION",
-	]);
-	assert.deepEqual(updateArgs(sources({}), "1.8.1").slice(2), ["sh", "1.8.1", DEFAULT_RAW, DEFAULT_SITE, DEFAULT_MIRRORS]);
+	assert.equal(DEFAULT_MIRRORS, "");
+	assert.equal(DEFAULT_RAW, "");
+	assert.equal(DEFAULT_ARCHIVE, "");
+	assert.deepEqual(versionUrls(sources({})), ["https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/VERSION"]);
+	assert.deepEqual(updateArgs(sources({}), "1.8.1").slice(2), ["sh", "1.8.1", "", DEFAULT_SITE]);
 });
 
 test("PI_ARISTOTE_SITE, PI_ARISTOTE_MIRRORS et PI_ARISTOTE_RAW : priorité, barre finale retirée, vide", () => {
@@ -38,7 +34,7 @@ test("PI_ARISTOTE_SITE, PI_ARISTOTE_MIRRORS et PI_ARISTOTE_RAW : priorité, barr
 	assert.deepEqual(sources({ PI_ARISTOTE_MIRRORS: " http://a.test/x/  http://b.test/y http://a.test/x" }).mirrors, ["http://a.test/x", "http://b.test/y"]);
 	assert.deepEqual(sources({ PI_ARISTOTE_MIRRORS: "" }).mirrors, []);
 	// Le site pris pour principal n'est pas repris comme miroir.
-	assert.deepEqual(sources({ PI_ARISTOTE_SITE: DEFAULT_MIRRORS }).mirrors, []);
+	assert.deepEqual(sources({ PI_ARISTOTE_SITE: "https://exemple.org/pi-aristote", PI_ARISTOTE_MIRRORS: "https://exemple.org/pi-aristote" }).mirrors, []);
 	assert.equal(sources({ PI_ARISTOTE_RAW: "http://localhost:9000/raw/" }).raw, "http://localhost:9000/raw");
 	const sansSecours = sources({ PI_ARISTOTE_RAW: "", PI_ARISTOTE_MIRRORS: "" });
 	assert.equal(sansSecours.raw, "");
@@ -143,7 +139,6 @@ test("même adresse dans l'extension, l'installateur et la page : le LISN d'abor
 	assert.ok(page.includes(`unix: "curl -fsSL ${DEFAULT_SITE}/install.sh | sh"`));
 	assert.ok(page.includes(`win: 'wsl bash -lc "curl -fsSL ${DEFAULT_SITE}/install.sh | sh"'`));
 	assert.ok(page.includes("https://gitlab.lisn.upsaclay.fr/vibe-coding/pi-aristote"), "lien vers le dépôt GitLab du LISN");
-	assert.ok(page.includes("https://github.com/l-pommeret/pi-aristote"), "miroir GitHub mentionné");
 	const ext = readdirSync(join(ROOT, "extensions/aristote")).map((f) => lire(`extensions/aristote/${f}`));
 	assert.ok(page.includes(`<code id="cmd"><span class="p">$ </span>curl -fsSL ${DEFAULT_SITE}/install.sh | sh</code>`));
 	for (const texte of ext) assert.doesNotMatch(texte, /curl -fsSL https:\/\/thegreeklibrary\.org/, "la commande d'installation vise le LISN");

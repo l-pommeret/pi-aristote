@@ -1,7 +1,6 @@
 # Publication sur les Pages du LISN (https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/),
 # la source principale de l'installateur et de /maj : la page et tout site/ (sous-dossiers
 # compris), install.sh, VERSION et l'archive des dossiers extensions/ et themes/.
-# Le miroir thegreeklibrary.org est publié à part (voir le README).
 pages:
   image: alpine:latest
   script:

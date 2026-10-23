@@ -1,7 +1,6 @@
 #!/bin/sh
 # Installe (ou met à jour) pi + l'extension Aristote.
 #   curl -fsSL https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/install.sh | sh
-# Miroir : https://thegreeklibrary.org/pi-aristote/install.sh
 set -eu
 
 # Tout le script tient dans main(), appelée à la dernière ligne : le shell lit
@@ -14,8 +13,8 @@ SITE="${SITE%/}"
 # Secours, dans l'ordre, si le site ne convient pas (injoignable, archive
 # incomplète ou plus ancienne que l'extension installée) : les miroirs (séparés
 # par des espaces), puis l'archive du dépôt GitHub. Vide : pas de secours.
-MIRRORS="${PI_ARISTOTE_MIRRORS-https://thegreeklibrary.org/pi-aristote}"
-ARCHIVE="${PI_ARISTOTE_ARCHIVE-https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main}"
+MIRRORS="${PI_ARISTOTE_MIRRORS-}"
+ARCHIVE="${PI_ARISTOTE_ARCHIVE-}"
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 PRIVATE_NODE="$HOME/.local/share/pi-aristote/node"
 NODE_MIN_MAJOR=22
