@@ -65,9 +65,13 @@ export function cligno(texte: string, phase: number): string {
 
 export function installResponsabilite(pi: ExtensionAPI) {
 	let minuterie: ReturnType<typeof setInterval> | undefined;
-	const afficher = (ctx: any) => {
+	// Le ctx est périmé après /maj (reload), /resume, /new : la minuterie s'arrête avant.
+	const arreter = () => {
 		if (minuterie) clearInterval(minuterie);
 		minuterie = undefined;
+	};
+	const afficher = (ctx: any) => {
+		arreter();
 		if (ctx?.mode !== "tui" || process.env.ARISTOTE_SUBAGENT === "1") return;
 		if (yoloActif(pi.getFlag("yolo"))) {
 			ctx.ui.setStatus("aristote-yolo", rgb([230, 57, 70], "Φ yolo : commandes sans confirmation"));
@@ -79,11 +83,18 @@ export function installResponsabilite(pi: ExtensionAPI) {
 		}
 		let phase = 0;
 		const texte = "Φ /yolo : lancer les commandes sans confirmation";
-		const tick = () => ctx.ui.setStatus("aristote-yolo", cligno(texte, phase++ % 6 === 5 ? 1 : phase * 2));
+		const tick = () => {
+			try {
+				ctx.ui.setStatus("aristote-yolo", cligno(texte, phase++ % 6 === 5 ? 1 : phase * 2));
+			} catch {
+				arreter();
+			}
+		};
 		tick();
 		minuterie = setInterval(tick, 350);
 		(minuterie as any).unref?.();
 	};
+	pi.on("session_shutdown", async () => arreter());
 	pi.on("session_start", async (_e: any, ctx: any) => {
 		afficher(ctx);
 		if (pi.getFlag("yolo") === true && ctx.mode === "tui") ctx.ui.notify(`Φ --yolo. ${AVERTISSEMENT_F1}`, "warning");

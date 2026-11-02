@@ -146,8 +146,11 @@ export default async function (pi: ExtensionAPI) {
 		startupChecks(ctx);
 		if (refreshing) {
 			ctx.ui.setStatus("aristote-sync", "· vérification des modèles…");
-			refreshing.finally(() => ctx.ui.setStatus("aristote-sync", undefined)).catch(() => {});
+			refreshing.finally(() => lastCtx?.ui.setStatus("aristote-sync", undefined)).catch(() => {});
 		}
+	});
+	pi.on("session_shutdown", async () => {
+		lastCtx = undefined;
 	});
 	pi.on("turn_start", async (_e, ctx) => {
 		lastCtx = ctx;
