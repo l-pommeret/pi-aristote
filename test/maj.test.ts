@@ -18,14 +18,14 @@ after(() => rmSync(work, { recursive: true, force: true }));
 
 // --- adresses ---------------------------------------------------------------
 
-test("adresses par défaut : les Pages du LISN seules, sans secours", () => {
-	assert.deepEqual(sources({}), { site: DEFAULT_SITE, mirrors: [], raw: "" });
+test("adresses par défaut : les Pages du LISN, puis GitHub", () => {
+	assert.deepEqual(sources({}), { site: DEFAULT_SITE, mirrors: [], raw: DEFAULT_RAW });
 	assert.equal(DEFAULT_SITE, "https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote");
 	assert.equal(DEFAULT_MIRRORS, "");
-	assert.equal(DEFAULT_RAW, "");
-	assert.equal(DEFAULT_ARCHIVE, "");
-	assert.deepEqual(versionUrls(sources({})), ["https://vibe-coding.pages.lisn.upsaclay.fr/pi-aristote/VERSION"]);
-	assert.deepEqual(updateArgs(sources({}), "1.8.1").slice(2), ["sh", "1.8.1", "", DEFAULT_SITE]);
+	assert.equal(DEFAULT_RAW, "https://raw.githubusercontent.com/l-pommeret/pi-aristote/main");
+	assert.equal(DEFAULT_ARCHIVE, "https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main");
+	assert.deepEqual(versionUrls(sources({})), [`${DEFAULT_SITE}/VERSION`, `${DEFAULT_RAW}/extensions/aristote/VERSION`]);
+	assert.deepEqual(updateArgs(sources({}), "1.8.1").slice(2), ["sh", "1.8.1", DEFAULT_RAW, DEFAULT_SITE]);
 });
 
 test("PI_ARISTOTE_SITE, PI_ARISTOTE_MIRRORS et PI_ARISTOTE_RAW : priorité, barre finale retirée, vide", () => {

@@ -14,7 +14,7 @@ SITE="${SITE%/}"
 # incomplète ou plus ancienne que l'extension installée) : les miroirs (séparés
 # par des espaces), puis l'archive du dépôt GitHub. Vide : pas de secours.
 MIRRORS="${PI_ARISTOTE_MIRRORS-}"
-ARCHIVE="${PI_ARISTOTE_ARCHIVE-}"
+ARCHIVE="${PI_ARISTOTE_ARCHIVE-https://codeload.github.com/l-pommeret/pi-aristote/tar.gz/refs/heads/main}"
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 PRIVATE_NODE="$HOME/.local/share/pi-aristote/node"
 NODE_MIN_MAJOR=22

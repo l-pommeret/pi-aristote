@@ -8,7 +8,7 @@ Dépôt : https://gitlab.lisn.upsaclay.fr/vibe-coding/pi-aristote.
 
 ## Mise à jour de la responsabilité (1.9.0)
 
-Avant chaque commande que le modèle veut lancer (outil `bash`), pi demande votre accord. Pour s'en passer : `pi --yolo`, ou `/yolo` dans pi (`/yolo off` pour revenir aux confirmations). Sans interface (`pi -p`, sous-agents d'Ultracode), les commandes sont refusées sauf en mode yolo.
+Avant chaque commande que le modèle veut lancer (outil `bash`), pi demande votre accord. Pour s'en passer : `pi --yolo`, ou `/yolo` dans pi (`/yolo off` pour revenir aux confirmations). Entre les deux : `pi --yom` ou `/yom` laisse passer seules les commandes inoffensives (lecture, recherche, téléchargements, installation de dépendances, compilation, tests) et demande pour les sensibles (`rm`, `mv`, `git push`, `sudo`, écriture par `>`…) ou inconnues. Sans interface (`pi -p`, sous-agents d'Ultracode), les commandes qui demanderaient un accord sont refusées.
 
 ## Installation
 
