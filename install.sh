@@ -72,6 +72,25 @@ node_ok() {
 	node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>$NODE_MIN_MAJOR||(a===$NODE_MIN_MAJOR&&b>=$NODE_MIN_MINOR)?0:1)" 2>/dev/null
 }
 
+# Node.js récent veut libatomic.so.1, absente des Ubuntu minimaux (WSL, conteneurs) :
+# on la prend dans le paquet libatomic1, sans sudo, et node la trouve via un lanceur.
+libatomic() {
+	"$PRIVATE_NODE/bin/node" -v 2>&1 | grep -q libatomic || die "Node.js ne démarre pas : $("$PRIVATE_NODE/bin/node" -v 2>&1 | head -1)"
+	mkdir -p "$1/deb" "$PRIVATE_NODE/lib"
+	if command -v apt-get >/dev/null 2>&1 && command -v dpkg-deb >/dev/null 2>&1 &&
+		(cd "$1/deb" && apt-get download libatomic1 >/dev/null 2>&1) && dpkg-deb -x "$1"/deb/libatomic1_*.deb "$1/deb/x"; then
+		cp -P "$1"/deb/x/usr/lib/*/libatomic.so.1* "$PRIVATE_NODE/lib/"
+	fi
+	if [ ! -e "$PRIVATE_NODE/lib/libatomic.so.1" ]; then
+		rm -rf "$PRIVATE_NODE"
+		die "Il manque la bibliothèque libatomic. Installez-la (sudo apt install libatomic1, ou sudo dnf install libatomic), puis relancez."
+	fi
+	mv "$PRIVATE_NODE/bin/node" "$PRIVATE_NODE/bin/node.bin"
+	printf '#!/bin/sh\nLD_LIBRARY_PATH="%s/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" exec "%s/bin/node.bin" "$@"\n' "$PRIVATE_NODE" "$PRIVATE_NODE" >"$PRIVATE_NODE/bin/node"
+	chmod +x "$PRIVATE_NODE/bin/node"
+	"$PRIVATE_NODE/bin/node" -v >/dev/null 2>&1 || die "Node.js ne démarre toujours pas, même avec libatomic."
+}
+
 install_private_node() {
 	case "$(uname -s)" in Darwin) os=darwin ;; Linux) os=linux ;; *) die "Système non pris en charge : $(uname -s)" ;; esac
 	case "$(uname -m)" in arm64 | aarch64) arch=arm64 ;; x86_64 | amd64) arch=x64 ;; *) die "Architecture non prise en charge : $(uname -m)" ;; esac
@@ -85,6 +104,7 @@ install_private_node() {
 	rm -rf "$PRIVATE_NODE"
 	mkdir -p "$PRIVATE_NODE"
 	tar $flag "$tmp/node.archive" -C "$PRIVATE_NODE" --strip-components=1
+	"$PRIVATE_NODE/bin/node" -v >/dev/null 2>&1 || libatomic "$tmp"
 	rm -rf "$tmp"
 	PATH="$PRIVATE_NODE/bin:$PATH"
 	export PATH
