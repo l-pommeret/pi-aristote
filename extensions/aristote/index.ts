@@ -227,10 +227,11 @@ export default async function (pi: ExtensionAPI) {
 			["refresh", "maj", "key "].filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v.trim() })),
 		handler: async (args, ctx) => {
 			lastCtx = ctx;
-			const [sub, value] = args.trim().split(/\s+/, 2);
+			const [sub] = args.trim().split(/\s+/, 1);
 
 			if (sub === "key") {
-				if (!value?.startsWith("sk-"))
+				const value = /sk-[A-Za-z0-9_-]+/.exec(args)?.[0];
+				if (!value)
 					return ctx.ui.notify("Usage : /aristote key sk-…  (ta clé est sur https://aristote.education/llm-access/)", "warning");
 				try {
 					saveApiKey(value);

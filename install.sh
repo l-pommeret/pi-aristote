@@ -51,6 +51,8 @@ ask_secret() {
 	# Ctrl-C pendant la saisie : l'écho du terminal est rétabli avant de quitter.
 	trap 'stty echo </dev/tty 2>/dev/null; printf "\n" >/dev/tty; exit 130' INT TERM HUP
 	stty -echo </dev/tty 2>/dev/null || true
+	# Pas de collage « bracketed » (laissé actif par PowerShell, par exemple) : ses marqueurs finiraient dans la clé.
+	printf '\033[?2004l' >/dev/tty
 	IFS= read -r REPLY </dev/tty || REPLY=""
 	stty echo </dev/tty 2>/dev/null || true
 	trap - INT TERM HUP
@@ -353,7 +355,9 @@ if [ -z "$(cfg has-key)" ] && [ -z "${ARISTOTE_API_KEY:-}" ]; then
 	printf '  %sTu la trouves ici, après connexion avec ton compte universitaire :%s %s%s%s\n' "$D" "$Z" "$S" "https://aristote.education/llm-access/" "$Z"
 	while :; do
 		ask_secret "  Colle-la ici (rien ne s'affiche, c'est normal) : "
-		key="$(printf '%s' "$REPLY" | tr -d '[:space:]')"
+		# Seule la clé elle-même : un collage depuis Windows peut y ajouter retour chariot, espaces insécables ou marqueurs.
+		key="$(printf '%s' "$REPLY" | grep -o 'sk-[A-Za-z0-9_-]*' | head -1)"
+		[ -n "$key" ] || key="$(printf '%s' "$REPLY" | tr -d '[:space:]')"
 		[ -z "$key" ] && { printf '  %sPas de clé : récupère-la sur https://aristote.education/llm-access/ puis tape /aristote key sk-… dans pi%s\n' "$D" "$Z"; break; }
 		# La clé passe par l'entrée standard de curl (printf est interne au shell) :
 		# en argument, elle serait visible de tous les comptes de la machine (ps).
