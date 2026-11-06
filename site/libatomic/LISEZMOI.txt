@@ -1,0 +1,3 @@
+libatomic.so.1 du paquet Ubuntu 22.04 libatomic1 12.3.0-1ubuntu1~22.04.3 (GCC 12),
+GPL-3 avec l'exception GCC Runtime Library. Utilisée par install.sh quand Node.js
+ne trouve pas libatomic et qu'apt n'est pas utilisable.

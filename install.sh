@@ -73,17 +73,31 @@ node_ok() {
 }
 
 # Node.js récent veut libatomic.so.1, absente des Ubuntu minimaux (WSL, conteneurs) :
-# on la prend dans le paquet libatomic1, sans sudo, et node la trouve via un lanceur.
+# on la prend dans le paquet libatomic1 si apt le permet, sinon la copie servie avec
+# l'extension (Ubuntu 22.04, vérifiée par sha256), et node la trouve via un lanceur.
+LIBATOMIC_SHA_x64=d4a3c900a38ad280bb34003fbf8326fff53229d4bc4fc368bd48783b74680a36
+LIBATOMIC_SHA_arm64=6328b9396fd7a61a949701dee67fd522671b8ef531d9fb5b9fa8ccd7a05eb8a0
 libatomic() {
 	"$PRIVATE_NODE/bin/node" -v 2>&1 | grep -q libatomic || die "Node.js ne démarre pas : $("$PRIVATE_NODE/bin/node" -v 2>&1 | head -1)"
 	mkdir -p "$1/deb" "$PRIVATE_NODE/lib"
 	if command -v apt-get >/dev/null 2>&1 && command -v dpkg-deb >/dev/null 2>&1 &&
-		(cd "$1/deb" && apt-get download libatomic1 >/dev/null 2>&1) && dpkg-deb -x "$1"/deb/libatomic1_*.deb "$1/deb/x"; then
-		cp -P "$1"/deb/x/usr/lib/*/libatomic.so.1* "$PRIVATE_NODE/lib/"
+		(cd "$1/deb" && apt-get download libatomic1 >/dev/null 2>&1) && dpkg-deb -x "$1"/deb/libatomic1_*.deb "$1/deb/x" 2>/dev/null; then
+		cp -P "$1"/deb/x/usr/lib/*/libatomic.so.1* "$PRIVATE_NODE/lib/" 2>/dev/null
+	fi
+	if [ ! -e "$PRIVATE_NODE/lib/libatomic.so.1" ]; then
+		eval "attendu=\$LIBATOMIC_SHA_$arch"
+		for base in "$SITE" https://raw.githubusercontent.com/l-pommeret/pi-aristote/main/site; do
+			curl -fsSL --connect-timeout 10 --max-time 60 "$base/libatomic/linux-$arch/libatomic.so.1" -o "$1/libatomic.so.1" 2>/dev/null || continue
+			lu="$({ sha256sum "$1/libatomic.so.1" 2>/dev/null || shasum -a 256 "$1/libatomic.so.1"; } | cut -d' ' -f1)"
+			if [ "$lu" = "$attendu" ]; then
+				cp "$1/libatomic.so.1" "$PRIVATE_NODE/lib/libatomic.so.1"
+				break
+			fi
+		done
 	fi
 	if [ ! -e "$PRIVATE_NODE/lib/libatomic.so.1" ]; then
 		rm -rf "$PRIVATE_NODE"
-		die "Il manque la bibliothèque libatomic. Installez-la (sudo apt install libatomic1, ou sudo dnf install libatomic), puis relancez."
+		die "Il manque la bibliothèque libatomic, et je n'ai pas pu la télécharger. Si vous avez les droits : sudo apt install libatomic1, puis relancez."
 	fi
 	mv "$PRIVATE_NODE/bin/node" "$PRIVATE_NODE/bin/node.bin"
 	printf '#!/bin/sh\nLD_LIBRARY_PATH="%s/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" exec "%s/bin/node.bin" "$@"\n' "$PRIVATE_NODE" "$PRIVATE_NODE" >"$PRIVATE_NODE/bin/node"
